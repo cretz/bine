@@ -2,11 +2,15 @@ package control
 
 import (
 	"fmt"
+	"io"
 	"net/textproto"
 	"sync"
 )
 
 type Conn struct {
+	// No debug logs if nil
+	DebugWriter io.Writer
+
 	conn *textproto.Conn
 
 	asyncChansLock sync.RWMutex
@@ -65,7 +69,7 @@ func (c *Conn) AddAsyncChan(ch chan<- *Response) {
 }
 
 // Does not close
-func (c *Conn) RemoveChan(ch chan<- *Response) bool {
+func (c *Conn) RemoveAsyncChan(ch chan<- *Response) bool {
 	c.asyncChansLock.Lock()
 	chans := make([]chan<- *Response, len(c.asyncChans)+1)
 	copy(chans, c.asyncChans)
@@ -91,6 +95,16 @@ func (c *Conn) onAsyncResponse(resp *Response) {
 	// We will allow channels to block
 	for _, ch := range chans {
 		ch <- resp
+	}
+}
+
+func (c *Conn) debugEnabled() bool {
+	return c.DebugWriter != nil
+}
+
+func (c *Conn) debugf(format string, args ...interface{}) {
+	if w := c.DebugWriter; w != nil {
+		fmt.Fprintf(w, format+"\n", args...)
 	}
 }
 

@@ -52,6 +52,7 @@ func (c *Conn) ReadResponse() (*Response, error) {
 		if err != nil {
 			return nil, err
 		}
+		c.debugf("Read line: %v", line)
 
 		// Parse the line that was just read.
 		if len(line) < 4 {

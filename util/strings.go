@@ -1,11 +1,11 @@
-package control
+package util
 
 import (
 	"fmt"
 	"strings"
 )
 
-func partitionString(str string, ch byte) (string, string, bool) {
+func PartitionString(str string, ch byte) (string, string, bool) {
 	index := strings.IndexByte(str, ch)
 	if index == -1 {
 		return str, "", false
@@ -13,14 +13,14 @@ func partitionString(str string, ch byte) (string, string, bool) {
 	return str[:index], str[index+1:], true
 }
 
-func parseQuotedString(str string) (string, error) {
+func ParseSimpleQuotedString(str string) (string, error) {
 	if len(str) < 2 || str[0] != '"' || str[len(str)-1] != '"' {
 		return "", fmt.Errorf("Missing quotes")
 	}
-	return unescapeQuoted(str)
+	return UnescapeSimpleQuoted(str[1 : len(str)-1])
 }
 
-func unescapeQuoted(str string) (string, error) {
+func UnescapeSimpleQuoted(str string) (string, error) {
 	ret := ""
 	escaping := false
 	for _, c := range str {

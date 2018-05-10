@@ -2,6 +2,8 @@ package control
 
 import (
 	"strings"
+
+	"github.com/cretz/bine/util"
 )
 
 type ProtocolInfo struct {
@@ -25,20 +27,20 @@ func (c *Conn) RequestProtocolInfo() (*ProtocolInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Check PIVERSION
-	if len(resp.Data) == 0 || resp.Data[0] != "1" {
-		return nil, newProtocolError("Invalid PIVERSION: %s", resp.Reply)
-	}
-	// Get other response vals
+	// Check data vals
 	ret := &ProtocolInfo{RawResponse: resp}
 	for _, piece := range resp.Data {
-		key, val, ok := partitionString(piece, ' ')
+		key, val, ok := util.PartitionString(piece, ' ')
 		if !ok {
 			continue
 		}
 		switch key {
+		case "PROTOCOLINFO":
+			if val != "1" {
+				return nil, newProtocolError("Invalid PIVERSION: %v", val)
+			}
 		case "AUTH":
-			methods, cookieFile, _ := partitionString(val, ' ')
+			methods, cookieFile, _ := util.PartitionString(val, ' ')
 			if !strings.HasPrefix(methods, "METHODS=") {
 				continue
 			}
@@ -46,15 +48,15 @@ func (c *Conn) RequestProtocolInfo() (*ProtocolInfo, error) {
 				if !strings.HasPrefix(cookieFile, "COOKIEFILE=") {
 					continue
 				}
-				if ret.CookieFile, err = parseQuotedString(cookieFile[11:]); err != nil {
+				if ret.CookieFile, err = util.ParseSimpleQuotedString(cookieFile[11:]); err != nil {
 					continue
 				}
 			}
 			ret.AuthMethods = strings.Split(methods[8:], ",")
 		case "VERSION":
-			torVersion, _, _ := partitionString(val, ' ')
+			torVersion, _, _ := util.PartitionString(val, ' ')
 			if strings.HasPrefix(torVersion, "Tor=") {
-				ret.TorVersion, _ = parseQuotedString(torVersion[4:])
+				ret.TorVersion, err = util.ParseSimpleQuotedString(torVersion[4:])
 			}
 		}
 	}
