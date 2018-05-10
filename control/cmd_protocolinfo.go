@@ -22,7 +22,15 @@ func (p *ProtocolInfo) HasAuthMethod(authMethod string) bool {
 	return false
 }
 
-func (c *Conn) RequestProtocolInfo() (*ProtocolInfo, error) {
+func (c *Conn) ProtocolInfo() (*ProtocolInfo, error) {
+	var err error
+	if c.protocolInfo == nil {
+		c.protocolInfo, err = c.sendProtocolInfo()
+	}
+	return c.protocolInfo, err
+}
+
+func (c *Conn) sendProtocolInfo() (*ProtocolInfo, error) {
 	resp, err := c.SendRequest("PROTOCOLINFO")
 	if err != nil {
 		return nil, err
@@ -37,7 +45,7 @@ func (c *Conn) RequestProtocolInfo() (*ProtocolInfo, error) {
 		switch key {
 		case "PROTOCOLINFO":
 			if val != "1" {
-				return nil, newProtocolError("Invalid PIVERSION: %v", val)
+				return nil, c.protoErr("Invalid PIVERSION: %v", val)
 			}
 		case "AUTH":
 			methods, cookieFile, _ := util.PartitionString(val, ' ')

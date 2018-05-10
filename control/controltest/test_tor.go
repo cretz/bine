@@ -27,7 +27,7 @@ type TestTor struct {
 	processCancelFn context.CancelFunc
 }
 
-func StartTestTor(ctx context.Context) (*TestTor, error) {
+func StartTestTor(ctx context.Context, extraArgs ...string) (*TestTor, error) {
 	dataDir, err := ioutil.TempDir(".", "test-data-dir-")
 	if err != nil {
 		return nil, err
@@ -35,13 +35,13 @@ func StartTestTor(ctx context.Context) (*TestTor, error) {
 	controlPortFile := filepath.Join(dataDir, "control-port")
 	ret := &TestTor{
 		DataDir: dataDir,
-		OrigArgs: []string{
+		OrigArgs: append([]string{
 			// "--quiet",
 			"--DisableNetwork", "1",
 			"--ControlPort", "auto",
 			"--ControlPortWriteToFile", controlPortFile,
 			"--DataDirectory", dataDir,
-		},
+		}, extraArgs...),
 	}
 	errCh := make(chan error, 1)
 	var processCtx context.Context
