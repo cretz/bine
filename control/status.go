@@ -9,7 +9,7 @@ import (
 // The various control port StatusCode constants.
 const (
 	StatusOk            = 250
-	StatusOkUnneccecary = 251
+	StatusOkUnnecessary = 251
 
 	StatusErrResourceExhausted      = 451
 	StatusErrSyntaxError            = 500
@@ -31,7 +31,7 @@ const (
 
 var statusCodeStringMap = map[int]string{
 	StatusOk:            "OK",
-	StatusOkUnneccecary: "Operation was unnecessary",
+	StatusOkUnnecessary: "Operation was unnecessary",
 
 	StatusErrResourceExhausted:      "Resource exhausted",
 	StatusErrSyntaxError:            "Syntax error: protocol",

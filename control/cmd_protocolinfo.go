@@ -56,7 +56,7 @@ func (c *Conn) sendProtocolInfo() (*ProtocolInfo, error) {
 				if !strings.HasPrefix(cookieFile, "COOKIEFILE=") {
 					continue
 				}
-				if ret.CookieFile, err = util.ParseSimpleQuotedString(cookieFile[11:]); err != nil {
+				if ret.CookieFile, err = util.UnescapeSimpleQuotedString(cookieFile[11:]); err != nil {
 					continue
 				}
 			}
@@ -64,7 +64,7 @@ func (c *Conn) sendProtocolInfo() (*ProtocolInfo, error) {
 		case "VERSION":
 			torVersion, _, _ := util.PartitionString(val, ' ')
 			if strings.HasPrefix(torVersion, "Tor=") {
-				ret.TorVersion, err = util.ParseSimpleQuotedString(torVersion[4:])
+				ret.TorVersion, err = util.UnescapeSimpleQuotedString(torVersion[4:])
 			}
 		}
 	}

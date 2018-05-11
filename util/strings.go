@@ -13,14 +13,39 @@ func PartitionString(str string, ch byte) (string, string, bool) {
 	return str[:index], str[index+1:], true
 }
 
-func ParseSimpleQuotedString(str string) (string, error) {
+func EscapeSimpleQuotedStringIfNeeded(str string) string {
+	if strings.ContainsAny(str, " \\\"\r\n") {
+		return EscapeSimpleQuotedString(str)
+	}
+	return str
+}
+
+var SimpleQuotedStringEscapeReplacer = strings.NewReplacer(
+	"\\", "\\\\",
+	"\"", "\\\"",
+	"\r", "\\r",
+	"\n", "\\n",
+)
+
+func EscapeSimpleQuotedString(str string) string {
+	return "\"" + SimpleQuotedStringEscapeReplacer.Replace(str) + "\""
+}
+
+func UnescapeSimpleQuotedStringIfNeeded(str string) (string, error) {
+	if len(str) >= 2 && str[0] == '"' && str[len(str)-1] == '"' {
+		return UnescapeSimpleQuotedString(str)
+	}
+	return str, nil
+}
+
+func UnescapeSimpleQuotedString(str string) (string, error) {
 	if len(str) < 2 || str[0] != '"' || str[len(str)-1] != '"' {
 		return "", fmt.Errorf("Missing quotes")
 	}
-	return UnescapeSimpleQuoted(str[1 : len(str)-1])
+	return UnescapeSimpleQuotedStringContents(str[1 : len(str)-1])
 }
 
-func UnescapeSimpleQuoted(str string) (string, error) {
+func UnescapeSimpleQuotedStringContents(str string) (string, error) {
 	ret := ""
 	escaping := false
 	for _, c := range str {

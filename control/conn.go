@@ -14,20 +14,24 @@ type Conn struct {
 	conn *textproto.Conn
 
 	asyncChansLock sync.RWMutex
-	// Never mutated outside of lock, always created anew
+	// Can be traversed outside of lock, entire field is replaced on change
 	asyncChans []chan<- *Response
 
 	// Set lazily
 	protocolInfo *ProtocolInfo
 
 	Authenticated bool
+
+	eventListenersLock sync.RWMutex
+	// The value slices can be traversed outside of lock, they are completely replaced on change, never mutated
+	eventListeners map[EventCode][]chan<- Event
 }
 
-func NewConn(conn *textproto.Conn) *Conn { return &Conn{conn: conn} }
-
-func (c *Conn) SendSignal(signal string) error {
-	_, err := c.SendRequest("SIGNAL %v", signal)
-	return err
+func NewConn(conn *textproto.Conn) *Conn {
+	return &Conn{
+		conn:           conn,
+		eventListeners: map[EventCode][]chan<- Event{},
+	}
 }
 
 func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error) {
@@ -54,6 +58,11 @@ func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error
 	return resp, err
 }
 
+func (c *Conn) Quit() error {
+	_, err := c.SendRequest("QUIT")
+	return err
+}
+
 func (c *Conn) Close() error {
 	// We'll close all the chans first
 	c.asyncChansLock.Lock()
@@ -63,7 +72,7 @@ func (c *Conn) Close() error {
 	c.asyncChans = nil
 	c.asyncChansLock.Unlock()
 	// Ignore the response and ignore the error
-	c.SendRequest("QUIT")
+	c.Quit()
 	return c.conn.Close()
 }
 
@@ -97,6 +106,8 @@ func (c *Conn) RemoveAsyncChan(ch chan<- *Response) bool {
 }
 
 func (c *Conn) onAsyncResponse(resp *Response) {
+	// First, relay events
+	c.relayAsyncEvents(resp)
 	c.asyncChansLock.RLock()
 	chans := c.asyncChans
 	c.asyncChansLock.RUnlock()

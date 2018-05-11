@@ -26,11 +26,18 @@ type Response struct {
 // IsOk returns true if the response status code indicates success or an asynchronous event.
 func (r *Response) IsOk() bool {
 	switch r.Err.Code {
-	case StatusOk, StatusOkUnneccecary, StatusAsyncEvent:
+	case StatusOk, StatusOkUnnecessary, StatusAsyncEvent:
 		return true
 	default:
 		return false
 	}
+}
+
+func (r *Response) DataWithReply() []string {
+	ret := make([]string, len(r.Data)+1)
+	copy(ret, r.Data)
+	ret[len(ret)-1] = r.Reply
+	return ret
 }
 
 // IsAsync returns true if the response is an asyncrhonous event.
