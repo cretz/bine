@@ -11,21 +11,26 @@ import (
 type EventCode string
 
 const (
-	EventCodeAddrMap       EventCode = "ADDRMAP"
-	EventCodeBandwidth     EventCode = "BW"
-	EventCodeCircuit       EventCode = "CIRC"
-	EventCodeDescChanged   EventCode = "DESCCHANGED"
-	EventCodeLogDebug      EventCode = "DEBUG"
-	EventCodeLogErr        EventCode = "ERR"
-	EventCodeLogInfo       EventCode = "INFO"
-	EventCodeLogNotice     EventCode = "NOTICE"
-	EventCodeLogWarn       EventCode = "WARN"
-	EventCodeNewDesc       EventCode = "NEWDESC"
-	EventCodeORConn        EventCode = "ORCONN"
-	EventCodeStatusClient  EventCode = "STATUS_CLIENT"
-	EventCodeStatusGeneral EventCode = "STATUS_GENERAL"
-	EventCodeStatusServer  EventCode = "STATUS_SERVER"
-	EventCodeStream        EventCode = "STREAM"
+	EventCodeAddrMap         EventCode = "ADDRMAP"
+	EventCodeBandwidth       EventCode = "BW"
+	EventCodeCircuit         EventCode = "CIRC"
+	EventCodeClientsSeen     EventCode = "CLIENTS_SEEN"
+	EventCodeDescChanged     EventCode = "DESCCHANGED"
+	EventCodeGuard           EventCode = "GUARD"
+	EventCodeLogDebug        EventCode = "DEBUG"
+	EventCodeLogErr          EventCode = "ERR"
+	EventCodeLogInfo         EventCode = "INFO"
+	EventCodeLogNotice       EventCode = "NOTICE"
+	EventCodeLogWarn         EventCode = "WARN"
+	EventCodeNetworkStatus   EventCode = "NS"
+	EventCodeNewConsensus    EventCode = "NEWCONSENSUS"
+	EventCodeNewDesc         EventCode = "NEWDESC"
+	EventCodeORConn          EventCode = "ORCONN"
+	EventCodeStatusClient    EventCode = "STATUS_CLIENT"
+	EventCodeStatusGeneral   EventCode = "STATUS_GENERAL"
+	EventCodeStatusServer    EventCode = "STATUS_SERVER"
+	EventCodeStream          EventCode = "STREAM"
+	EventCodeStreamBandwidth EventCode = "STREAM_BW"
 )
 
 func (c *Conn) AddEventListener(events []EventCode, ch chan<- Event) error {
@@ -83,6 +88,10 @@ func (c *Conn) sendSetEvents() error {
 
 func (c *Conn) relayAsyncEvents(resp *Response) {
 	code, data, _ := util.PartitionString(resp.Reply, ' ')
+	// If there is an element in the data array, use that instead for the data
+	if len(resp.Data) > 0 {
+		data = resp.Data[0]
+	}
 	// Only relay if there are chans
 	c.eventListenersLock.RLock()
 	chans := c.eventListeners[EventCode(code)]
@@ -90,14 +99,8 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 	if len(chans) == 0 {
 		return
 	}
-	// Parse the event
-	// TODO: more events
-	var event Event
-	switch EventCode(code) {
-	case EventCodeCircuit:
-		event = ParseCircuitEvent(data)
-	}
-	if event != nil {
+	// Parse the event and only send if known event
+	if event := ParseEvent(EventCode(code), data); event != nil {
 		for _, ch := range chans {
 			// Just send, if closed or blocking, that's not our problem
 			ch <- event
@@ -129,6 +132,41 @@ func parseISOTime2Frac(str string) time.Time {
 
 type Event interface {
 	Code() EventCode
+}
+
+func ParseEvent(code EventCode, raw string) Event {
+	switch code {
+	case EventCodeAddrMap:
+		return ParseAddrMapEvent(raw)
+	case EventCodeBandwidth:
+		return ParseBandwidthEvent(raw)
+	case EventCodeCircuit:
+		return ParseCircuitEvent(raw)
+	case EventCodeClientsSeen:
+		return ParseClientsSeenEvent(raw)
+	case EventCodeDescChanged:
+		return ParseDescChangedEvent(raw)
+	case EventCodeGuard:
+		return ParseGuardEvent(raw)
+	case EventCodeLogDebug, EventCodeLogErr, EventCodeLogInfo, EventCodeLogNotice, EventCodeLogWarn:
+		return ParseLogEvent(code, raw)
+	case EventCodeNetworkStatus:
+		return ParseNetworkStatusEvent(raw)
+	case EventCodeNewConsensus:
+		return ParseNewConsensusEvent(raw)
+	case EventCodeNewDesc:
+		return ParseNewDescEvent(raw)
+	case EventCodeORConn:
+		return ParseORConnEvent(raw)
+	case EventCodeStatusClient, EventCodeStatusGeneral, EventCodeStatusServer:
+		return ParseStatusEvent(code, raw)
+	case EventCodeStream:
+		return ParseStreamEvent(raw)
+	case EventCodeStreamBandwidth:
+		return ParseStreamBandwidthEvent(raw)
+	default:
+		return nil
+	}
 }
 
 type CircuitEvent struct {
@@ -338,6 +376,7 @@ func ParseAddrMapEvent(raw string) *AddrMapEvent {
 		case "error":
 			event.ErrorCode = val
 		case "EXPIRES":
+			val, _ = util.UnescapeSimpleQuotedString(val)
 			event.Expires = parseISOTime(val)
 		case "CACHED":
 			event.Cached, _ = util.UnescapeSimpleQuotedStringIfNeeded(val)
@@ -381,3 +420,100 @@ func ParseStatusEvent(typ EventCode, raw string) *StatusEvent {
 }
 
 func (s *StatusEvent) Code() EventCode { return s.Type }
+
+type GuardEvent struct {
+	Raw    string
+	Type   string
+	Name   string
+	Status string
+}
+
+func ParseGuardEvent(raw string) *GuardEvent {
+	event := &GuardEvent{Raw: raw}
+	event.Type, raw, _ = util.PartitionString(raw, ' ')
+	event.Name, raw, _ = util.PartitionString(raw, ' ')
+	event.Status, raw, _ = util.PartitionString(raw, ' ')
+	return event
+}
+
+func (*GuardEvent) Code() EventCode { return EventCodeGuard }
+
+type NetworkStatusEvent struct {
+	Raw string
+}
+
+func ParseNetworkStatusEvent(raw string) *NetworkStatusEvent {
+	return &NetworkStatusEvent{Raw: raw}
+}
+
+func (*NetworkStatusEvent) Code() EventCode { return EventCodeNetworkStatus }
+
+type StreamBandwidthEvent struct {
+	Raw          string
+	BytesRead    int64
+	BytesWritten int64
+	Time         time.Time
+}
+
+func ParseStreamBandwidthEvent(raw string) *StreamBandwidthEvent {
+	event := &StreamBandwidthEvent{Raw: raw}
+	var temp string
+	temp, raw, _ = util.PartitionString(raw, ' ')
+	event.BytesRead, _ = strconv.ParseInt(temp, 10, 64)
+	temp, raw, _ = util.PartitionString(raw, ' ')
+	event.BytesWritten, _ = strconv.ParseInt(temp, 10, 64)
+	temp, raw, _ = util.PartitionString(raw, ' ')
+	temp, _ = util.UnescapeSimpleQuotedString(temp)
+	event.Time = parseISOTime2Frac(temp)
+	return event
+}
+
+func (*StreamBandwidthEvent) Code() EventCode { return EventCodeStreamBandwidth }
+
+type ClientsSeenEvent struct {
+	Raw            string
+	TimeStarted    time.Time
+	CountrySummary map[string]int
+	IPVersions     map[string]int
+}
+
+func ParseClientsSeenEvent(raw string) *ClientsSeenEvent {
+	event := &ClientsSeenEvent{Raw: raw}
+	var temp string
+	var ok bool
+	temp, raw, ok = util.PartitionString(raw, ' ')
+	temp, _ = util.UnescapeSimpleQuotedString(temp)
+	event.TimeStarted = parseISOTime(temp)
+	strToMap := func(str string) map[string]int {
+		ret := map[string]int{}
+		for _, keyVal := range strings.Split(str, ",") {
+			key, val, _ := util.PartitionString(keyVal, '=')
+			ret[key], _ = strconv.Atoi(val)
+		}
+		return ret
+	}
+	var attr string
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, _ := util.PartitionString(attr, '=')
+		switch key {
+		case "CountrySummary":
+			event.CountrySummary = strToMap(val)
+		case "IPVersions":
+			event.IPVersions = strToMap(val)
+		}
+	}
+	return event
+}
+
+func (*ClientsSeenEvent) Code() EventCode { return EventCodeClientsSeen }
+
+type NewConsensusEvent struct {
+	Raw string
+}
+
+func ParseNewConsensusEvent(raw string) *NewConsensusEvent {
+	return &NewConsensusEvent{Raw: raw}
+}
+
+func (*NewConsensusEvent) Code() EventCode { return EventCodeNewConsensus }
