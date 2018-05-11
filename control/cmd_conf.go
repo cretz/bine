@@ -30,8 +30,7 @@ func (c *Conn) sendSetConf(cmd string, entries []*ConfEntry) error {
 			cmd += "=" + util.EscapeSimpleQuotedStringIfNeeded(*entry.Value)
 		}
 	}
-	_, err := c.SendRequest(cmd)
-	return err
+	return c.sendRequestIgnoreResponse(cmd)
 }
 
 func (c *Conn) GetConf(keys ...string) ([]*ConfEntry, error) {
@@ -60,6 +59,9 @@ func (c *Conn) SaveConf(force bool) error {
 	if force {
 		cmd += " FORCE"
 	}
-	_, err := c.SendRequest(cmd)
-	return err
+	return c.sendRequestIgnoreResponse(cmd)
+}
+
+func (c *Conn) LoadConf(conf string) error {
+	return c.sendRequestIgnoreResponse("+LOADCONF\r\n%v\r\n.", conf)
 }

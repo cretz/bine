@@ -34,6 +34,11 @@ func NewConn(conn *textproto.Conn) *Conn {
 	}
 }
 
+func (c *Conn) sendRequestIgnoreResponse(format string, args ...interface{}) error {
+	_, err := c.SendRequest(format, args...)
+	return err
+}
+
 func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error) {
 	if c.debugEnabled() {
 		c.debugf("Write line: %v", fmt.Sprintf(format, args...))
@@ -56,11 +61,6 @@ func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error
 		err = resp.Err
 	}
 	return resp, err
-}
-
-func (c *Conn) Quit() error {
-	_, err := c.SendRequest("QUIT")
-	return err
 }
 
 func (c *Conn) Close() error {

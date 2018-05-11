@@ -64,8 +64,7 @@ func (c *Conn) sendSetEvents() error {
 		cmd += " " + string(event)
 	}
 	c.eventListenersLock.RUnlock()
-	_, err := c.SendRequest(cmd)
-	return err
+	return c.sendRequestIgnoreResponse(cmd)
 }
 
 // zero on fail

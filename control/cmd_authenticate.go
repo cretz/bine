@@ -98,11 +98,9 @@ func (c *Conn) Authenticate(password string) error {
 	return err
 }
 
-func (c *Conn) sendAuthenticate(byts []byte) (err error) {
+func (c *Conn) sendAuthenticate(byts []byte) error {
 	if len(byts) == 0 {
-		_, err = c.SendRequest("AUTHENTICATE")
-	} else {
-		_, err = c.SendRequest("AUTHENTICATE %v", hex.EncodeToString(byts))
+		return c.sendRequestIgnoreResponse("AUTHENTICATE")
 	}
-	return
+	return c.sendRequestIgnoreResponse("AUTHENTICATE %v", hex.EncodeToString(byts))
 }
