@@ -82,13 +82,14 @@ func (c *Conn) ReadResponse() (*Response, error) {
 			resp.Data = append(resp.Data, line[4:])
 		case '+':
 			// A "dot-encoded" payload follows.
-			resp.Data = append(resp.Data, line[4:])
 			dotBody, err := c.conn.ReadDotBytes()
 			if err != nil {
 				return nil, err
 			}
-			resp.Data = append(resp.Data, strings.TrimRight(string(dotBody), "\n\r"))
-			dotLines := strings.Split(string(dotBody), "\n")
+			dotBodyStr := strings.TrimRight(string(dotBody), "\n\r")
+			c.debugf("Read dot body:\n---\n%v\n---", dotBodyStr)
+			resp.Data = append(resp.Data, line[4:]+dotBodyStr)
+			dotLines := strings.Split(dotBodyStr, "\n")
 			for _, dotLine := range dotLines[:len(dotLines)-1] {
 				resp.RawLines = append(resp.RawLines, dotLine)
 			}

@@ -15,11 +15,11 @@ func NewConfEntry(key string, value *string) *ConfEntry {
 	return &ConfEntry{Key: key, Value: value}
 }
 
-func (c *Conn) SetConf(entries []*ConfEntry) error {
+func (c *Conn) SetConf(entries ...*ConfEntry) error {
 	return c.sendSetConf("SETCONF", entries)
 }
 
-func (c *Conn) ResetConf(entries []*ConfEntry) error {
+func (c *Conn) ResetConf(entries ...*ConfEntry) error {
 	return c.sendSetConf("RESETCONF", entries)
 }
 

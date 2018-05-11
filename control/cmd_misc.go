@@ -48,7 +48,7 @@ type InfoValue struct {
 }
 
 func (c *Conn) GetInfo(keys ...string) ([]*InfoValue, error) {
-	resp, err := c.SendRequest("GETCONF %v", strings.Join(keys, " "))
+	resp, err := c.SendRequest("GETINFO %v", strings.Join(keys, " "))
 	if err != nil {
 		return nil, err
 	}

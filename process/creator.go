@@ -2,6 +2,7 @@ package process
 
 import (
 	"context"
+	"os"
 	"os/exec"
 )
 
@@ -17,5 +18,8 @@ func NewProcessCreator(exePath string) ProcessCreator {
 	return &exeProcessCreator{exePath}
 }
 func (e *exeProcessCreator) New(ctx context.Context, args ...string) (Process, error) {
-	return &exeProcess{Cmd: exec.CommandContext(ctx, e.exePath, args...)}, nil
+	proc := &exeProcess{Cmd: exec.CommandContext(ctx, e.exePath, args...)}
+	proc.Stdout = os.Stdout
+	proc.Stderr = os.Stderr
+	return proc, nil
 }

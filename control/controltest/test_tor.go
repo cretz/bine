@@ -15,7 +15,7 @@ import (
 var torExePath string
 
 func init() {
-	flag.StringVar(&torExePath, "tor", "tor", "The TOR exe path")
+	flag.StringVar(&torExePath, "tor.path", "tor", "The TOR exe path")
 	flag.Parse()
 }
 
@@ -33,9 +33,15 @@ func StartTestTor(ctx context.Context, extraArgs ...string) (*TestTor, error) {
 		return nil, err
 	}
 	controlPortFile := filepath.Join(dataDir, "control-port")
+	// We have to touch the torrc
+	torrcFile := filepath.Join(dataDir, "test-torrc")
+	if err = ioutil.WriteFile(torrcFile, nil, os.FileMode(0600)); err != nil {
+		return nil, err
+	}
 	ret := &TestTor{
 		DataDir: dataDir,
 		OrigArgs: append([]string{
+			"-f", torrcFile,
 			// "--quiet",
 			"--DisableNetwork", "1",
 			"--ControlPort", "auto",

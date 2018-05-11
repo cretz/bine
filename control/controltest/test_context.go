@@ -35,6 +35,16 @@ func NewTestContextConnected(t *testing.T, extraTorArgs ...string) (*TestContext
 	return ctx, conn
 }
 
+func NewTestContextAuthenticated(t *testing.T, extraTorArgs ...string) (*TestContext, *control.Conn) {
+	ctx, conn := NewTestContextConnected(t, extraTorArgs...)
+	if err := conn.Authenticate(""); err != nil {
+		conn.Close()
+		ctx.Close()
+		ctx.Fatal(err)
+	}
+	return ctx, conn
+}
+
 func (t *TestContext) EnsureTestTorStarted() {
 	if t.TestTor == nil {
 		var err error
