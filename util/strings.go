@@ -13,6 +13,14 @@ func PartitionString(str string, ch byte) (string, string, bool) {
 	return str[:index], str[index+1:], true
 }
 
+func PartitionStringFromEnd(str string, ch byte) (string, string, bool) {
+	index := strings.LastIndexByte(str, ch)
+	if index == -1 {
+		return str, "", false
+	}
+	return str[:index], str[index+1:], true
+}
+
 func EscapeSimpleQuotedStringIfNeeded(str string) string {
 	if strings.ContainsAny(str, " \\\"\r\n") {
 		return EscapeSimpleQuotedString(str)

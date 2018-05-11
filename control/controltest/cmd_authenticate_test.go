@@ -30,6 +30,6 @@ func TestAuthenticateHashedPassword(t *testing.T) {
 	// Verify auth methods before auth
 	info, err := conn.ProtocolInfo()
 	ctx.Require.NoError(err)
-	ctx.Require.ElementsMatch([]string{"HASHESPASSWORD"}, info.AuthMethods)
+	ctx.Require.ElementsMatch([]string{"HASHEDPASSWORD"}, info.AuthMethods)
 	ctx.Require.NoError(conn.Authenticate("testpass"))
 }

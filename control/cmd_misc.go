@@ -14,48 +14,34 @@ func (c *Conn) Quit() error {
 	return c.sendRequestIgnoreResponse("QUIT")
 }
 
-type MappedAddress struct {
-	Old string
-	New string
-}
-
-func NewMappedAddress(old string, new string) *MappedAddress {
-	return &MappedAddress{Old: old, New: new}
-}
-
-func (c *Conn) MapAddresses(addresses []*MappedAddress) ([]*MappedAddress, error) {
+func (c *Conn) MapAddresses(addresses ...*KeyVal) ([]*KeyVal, error) {
 	cmd := "MAPADDRESS"
 	for _, address := range addresses {
-		cmd += " " + address.New + "=" + address.Old
+		cmd += " " + address.Key + "=" + address.Val
 	}
 	resp, err := c.SendRequest(cmd)
 	if err != nil {
 		return nil, err
 	}
 	data := resp.DataWithReply()
-	ret := make([]*MappedAddress, 0, len(data))
+	ret := make([]*KeyVal, 0, len(data))
 	for _, address := range data {
-		mappedAddress := &MappedAddress{}
-		mappedAddress.Old, mappedAddress.New, _ = util.PartitionString(address, '=')
+		mappedAddress := &KeyVal{}
+		mappedAddress.Key, mappedAddress.Val, _ = util.PartitionString(address, '=')
 		ret = append(ret, mappedAddress)
 	}
 	return ret, nil
 }
 
-type InfoValue struct {
-	Key   string
-	Value string
-}
-
-func (c *Conn) GetInfo(keys ...string) ([]*InfoValue, error) {
+func (c *Conn) GetInfo(keys ...string) ([]*KeyVal, error) {
 	resp, err := c.SendRequest("GETINFO %v", strings.Join(keys, " "))
 	if err != nil {
 		return nil, err
 	}
-	ret := make([]*InfoValue, 0, len(resp.Data))
+	ret := make([]*KeyVal, 0, len(resp.Data))
 	for _, val := range resp.Data {
-		infoVal := &InfoValue{}
-		infoVal.Key, infoVal.Value, _ = util.PartitionString(val, '=')
+		infoVal := &KeyVal{}
+		infoVal.Key, infoVal.Val, _ = util.PartitionString(val, '=')
 		ret = append(ret, infoVal)
 	}
 	return ret, nil
