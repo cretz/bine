@@ -12,50 +12,74 @@ import (
 type EventCode string
 
 const (
-	EventCodeAddrMap         EventCode = "ADDRMAP"
-	EventCodeBandwidth       EventCode = "BW"
-	EventCodeCircuit         EventCode = "CIRC"
-	EventCodeClientsSeen     EventCode = "CLIENTS_SEEN"
-	EventCodeDescChanged     EventCode = "DESCCHANGED"
-	EventCodeGuard           EventCode = "GUARD"
-	EventCodeLogDebug        EventCode = "DEBUG"
-	EventCodeLogErr          EventCode = "ERR"
-	EventCodeLogInfo         EventCode = "INFO"
-	EventCodeLogNotice       EventCode = "NOTICE"
-	EventCodeLogWarn         EventCode = "WARN"
-	EventCodeNetworkStatus   EventCode = "NS"
-	EventCodeNewConsensus    EventCode = "NEWCONSENSUS"
-	EventCodeNewDesc         EventCode = "NEWDESC"
-	EventCodeORConn          EventCode = "ORCONN"
-	EventCodeStatusClient    EventCode = "STATUS_CLIENT"
-	EventCodeStatusGeneral   EventCode = "STATUS_GENERAL"
-	EventCodeStatusServer    EventCode = "STATUS_SERVER"
-	EventCodeStream          EventCode = "STREAM"
-	EventCodeStreamBandwidth EventCode = "STREAM_BW"
+	EventCodeAddrMap           EventCode = "ADDRMAP"
+	EventCodeBandwidth         EventCode = "BW"
+	EventCodeBuildTimeoutSet   EventCode = "BUILDTIMEOUT_SET"
+	EventCodeCellStats         EventCode = "CELL_STATS"
+	EventCodeCircuit           EventCode = "CIRC"
+	EventCodeCircuitBandwidth  EventCode = "CIRC_BW"
+	EventCodeCircuitMinor      EventCode = "CIRC_MINOR"
+	EventCodeClientsSeen       EventCode = "CLIENTS_SEEN"
+	EventCodeConfChanged       EventCode = "CONF_CHANGED"
+	EventCodeConnBandwidth     EventCode = "CONN_BW"
+	EventCodeDescChanged       EventCode = "DESCCHANGED"
+	EventCodeGuard             EventCode = "GUARD"
+	EventCodeHSDesc            EventCode = "HS_DESC"
+	EventCodeHSDescContent     EventCode = "HS_DESC_CONTENT"
+	EventCodeLogDebug          EventCode = "DEBUG"
+	EventCodeLogErr            EventCode = "ERR"
+	EventCodeLogInfo           EventCode = "INFO"
+	EventCodeLogNotice         EventCode = "NOTICE"
+	EventCodeLogWarn           EventCode = "WARN"
+	EventCodeNetworkLiveness   EventCode = "NETWORK_LIVENESS"
+	EventCodeNetworkStatus     EventCode = "NS"
+	EventCodeNewConsensus      EventCode = "NEWCONSENSUS"
+	EventCodeNewDesc           EventCode = "NEWDESC"
+	EventCodeORConn            EventCode = "ORCONN"
+	EventCodeSignal            EventCode = "SIGNAL"
+	EventCodeStatusClient      EventCode = "STATUS_CLIENT"
+	EventCodeStatusGeneral     EventCode = "STATUS_GENERAL"
+	EventCodeStatusServer      EventCode = "STATUS_SERVER"
+	EventCodeStream            EventCode = "STREAM"
+	EventCodeStreamBandwidth   EventCode = "STREAM_BW"
+	EventCodeTokenBucketEmpty  EventCode = "TB_EMPTY"
+	EventCodeTransportLaunched EventCode = "TRANSPORT_LAUNCHED"
 )
 
 func EventCodes() []EventCode {
 	return []EventCode{
 		EventCodeAddrMap,
 		EventCodeBandwidth,
+		EventCodeBuildTimeoutSet,
+		EventCodeCellStats,
 		EventCodeCircuit,
+		EventCodeCircuitBandwidth,
+		EventCodeCircuitMinor,
 		EventCodeClientsSeen,
+		EventCodeConfChanged,
+		EventCodeConnBandwidth,
 		EventCodeDescChanged,
 		EventCodeGuard,
+		EventCodeHSDesc,
+		EventCodeHSDescContent,
 		EventCodeLogDebug,
 		EventCodeLogErr,
 		EventCodeLogInfo,
 		EventCodeLogNotice,
 		EventCodeLogWarn,
+		EventCodeNetworkLiveness,
 		EventCodeNetworkStatus,
 		EventCodeNewConsensus,
 		EventCodeNewDesc,
 		EventCodeORConn,
+		EventCodeSignal,
 		EventCodeStatusClient,
 		EventCodeStatusGeneral,
 		EventCodeStatusServer,
 		EventCodeStream,
 		EventCodeStreamBandwidth,
+		EventCodeTokenBucketEmpty,
+		EventCodeTransportLaunched,
 	}
 }
 
@@ -157,14 +181,18 @@ func (c *Conn) sendSetEvents() error {
 }
 
 func (c *Conn) relayAsyncEvents(resp *Response) {
-	// If there is data, use the first line as the code and
 	var code, data string
-	if len(resp.Data) > 0 {
+	var dataArray []string
+	if len(resp.Data) == 1 {
+		// If there is a single line of data, first line of it is the code, rest of the first line is data
 		firstNewline := strings.Index(resp.Data[0], "\r\n")
 		if firstNewline == -1 {
 			return
 		}
 		code, data = resp.Data[0][:firstNewline], resp.Data[0][firstNewline+2:]
+	} else if len(resp.Data) > 0 {
+		// If there are multiple lines, the entire first line is the code
+		code, dataArray = resp.Data[0], resp.Data[1:]
 	} else {
 		// Otherwise, the reply line has the data
 		code, data, _ = util.PartitionString(resp.Reply, ' ')
@@ -177,7 +205,7 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 		return
 	}
 	// Parse the event and only send if known event
-	if event := ParseEvent(EventCode(code), data); event != nil {
+	if event := ParseEvent(EventCode(code), data, dataArray); event != nil {
 		for _, ch := range chans {
 			// Just send, if closed or blocking, that's not our problem
 			ch <- event
@@ -211,22 +239,40 @@ type Event interface {
 	Code() EventCode
 }
 
-func ParseEvent(code EventCode, raw string) Event {
+func ParseEvent(code EventCode, raw string, dataArray []string) Event {
 	switch code {
 	case EventCodeAddrMap:
 		return ParseAddrMapEvent(raw)
 	case EventCodeBandwidth:
 		return ParseBandwidthEvent(raw)
+	case EventCodeBuildTimeoutSet:
+		return ParseBuildTimeoutSetEvent(raw)
+	case EventCodeCellStats:
+		return ParseCellStatsEvent(raw)
 	case EventCodeCircuit:
 		return ParseCircuitEvent(raw)
+	case EventCodeCircuitBandwidth:
+		return ParseCircuitBandwidthEvent(raw)
+	case EventCodeCircuitMinor:
+		return ParseCircuitMinorEvent(raw)
 	case EventCodeClientsSeen:
 		return ParseClientsSeenEvent(raw)
+	case EventCodeConfChanged:
+		return ParseConfChangedEvent(dataArray)
+	case EventCodeConnBandwidth:
+		return ParseConnBandwidthEvent(raw)
 	case EventCodeDescChanged:
 		return ParseDescChangedEvent(raw)
 	case EventCodeGuard:
 		return ParseGuardEvent(raw)
+	case EventCodeHSDesc:
+		return ParseHSDescEvent(raw)
+	case EventCodeHSDescContent:
+		return ParseHSDescContentEvent(raw)
 	case EventCodeLogDebug, EventCodeLogErr, EventCodeLogInfo, EventCodeLogNotice, EventCodeLogWarn:
 		return ParseLogEvent(code, raw)
+	case EventCodeNetworkLiveness:
+		return ParseNetworkLivenessEvent(raw)
 	case EventCodeNetworkStatus:
 		return ParseNetworkStatusEvent(raw)
 	case EventCodeNewConsensus:
@@ -235,12 +281,18 @@ func ParseEvent(code EventCode, raw string) Event {
 		return ParseNewDescEvent(raw)
 	case EventCodeORConn:
 		return ParseORConnEvent(raw)
+	case EventCodeSignal:
+		return ParseSignalEvent(raw)
 	case EventCodeStatusClient, EventCodeStatusGeneral, EventCodeStatusServer:
 		return ParseStatusEvent(code, raw)
 	case EventCodeStream:
 		return ParseStreamEvent(raw)
 	case EventCodeStreamBandwidth:
 		return ParseStreamBandwidthEvent(raw)
+	case EventCodeTokenBucketEmpty:
+		return ParseTokenBucketEmptyEvent(raw)
+	case EventCodeTransportLaunched:
+		return ParseTransportLaunchedEvent(raw)
 	default:
 		return nil
 	}
@@ -594,3 +646,382 @@ func ParseNewConsensusEvent(raw string) *NewConsensusEvent {
 }
 
 func (*NewConsensusEvent) Code() EventCode { return EventCodeNewConsensus }
+
+type BuildTimeoutSetEvent struct {
+	Raw          string
+	Type         string
+	TotalTimes   int
+	Timeout      time.Duration
+	Xm           int
+	Alpha        float32
+	Quantile     float32
+	TimeoutRate  float32
+	CloseTimeout time.Duration
+	CloseRate    float32
+}
+
+func ParseBuildTimeoutSetEvent(raw string) *BuildTimeoutSetEvent {
+	event := &BuildTimeoutSetEvent{Raw: raw}
+	var ok bool
+	event.Type, raw, ok = util.PartitionString(raw, ' ')
+	_, raw, ok = util.PartitionString(raw, ' ')
+	var attr string
+	parseFloat := func(val string) float32 {
+		f, _ := strconv.ParseFloat(val, 32)
+		return float32(f)
+	}
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, _ := util.PartitionString(attr, '=')
+		switch key {
+		case "TOTAL_TIMES":
+			event.TotalTimes, _ = strconv.Atoi(val)
+		case "TIMEOUT_MS":
+			if ms, err := strconv.ParseInt(val, 10, 64); err == nil {
+				event.Timeout = time.Duration(ms) * time.Millisecond
+			}
+		case "XM":
+			event.Xm, _ = strconv.Atoi(val)
+		case "ALPHA":
+			event.Alpha = parseFloat(val)
+		case "CUTOFF_QUANTILE":
+			event.Quantile = parseFloat(val)
+		case "TIMEOUT_RATE":
+			event.TimeoutRate = parseFloat(val)
+		case "CLOSE_MS":
+			if ms, err := strconv.ParseInt(val, 10, 64); err == nil {
+				event.CloseTimeout = time.Duration(ms) * time.Millisecond
+			}
+		case "CLOSE_RATE":
+			event.CloseRate = parseFloat(val)
+		}
+	}
+	return event
+}
+
+func (*BuildTimeoutSetEvent) Code() EventCode { return EventCodeBuildTimeoutSet }
+
+type SignalEvent struct {
+	Raw string
+}
+
+func ParseSignalEvent(raw string) *SignalEvent {
+	return &SignalEvent{Raw: raw}
+}
+
+func (*SignalEvent) Code() EventCode { return EventCodeSignal }
+
+type ConfChangedEvent struct {
+	Raw []string
+}
+
+func ParseConfChangedEvent(raw []string) *ConfChangedEvent {
+	// TODO: break into KeyVal and unescape strings
+	return &ConfChangedEvent{Raw: raw}
+}
+
+func (*ConfChangedEvent) Code() EventCode { return EventCodeConfChanged }
+
+type CircuitMinorEvent struct {
+	Raw         string
+	CircuitID   string
+	Event       string
+	Path        []string
+	BuildFlags  []string
+	Purpose     string
+	HSState     string
+	RendQuery   string
+	TimeCreated time.Time
+	OldPurpose  string
+	OldHSState  string
+}
+
+func ParseCircuitMinorEvent(raw string) *CircuitMinorEvent {
+	event := &CircuitMinorEvent{Raw: raw}
+	event.CircuitID, raw, _ = util.PartitionString(raw, ' ')
+	var ok bool
+	event.Event, raw, ok = util.PartitionString(raw, ' ')
+	var attr string
+	first := true
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, _ := util.PartitionString(attr, '=')
+		switch key {
+		case "BUILD_FLAGS":
+			event.BuildFlags = strings.Split(val, ",")
+		case "PURPOSE":
+			event.Purpose = val
+		case "HS_STATE":
+			event.HSState = val
+		case "REND_QUERY":
+			event.RendQuery = val
+		case "TIME_CREATED":
+			event.TimeCreated = parseISOTime2Frac(val)
+		case "OLD_PURPOSE":
+			event.OldPurpose = val
+		case "OLD_HS_STATE":
+			event.OldHSState = val
+		default:
+			if first {
+				event.Path = strings.Split(val, ",")
+			}
+		}
+		first = false
+	}
+	return event
+}
+
+func (*CircuitMinorEvent) Code() EventCode { return EventCodeCircuitMinor }
+
+type TransportLaunchedEvent struct {
+	Raw     string
+	Type    string
+	Name    string
+	Address string
+	Port    int
+}
+
+func ParseTransportLaunchedEvent(raw string) *TransportLaunchedEvent {
+	event := &TransportLaunchedEvent{Raw: raw}
+	event.Type, raw, _ = util.PartitionString(raw, ' ')
+	event.Name, raw, _ = util.PartitionString(raw, ' ')
+	event.Address, raw, _ = util.PartitionString(raw, ' ')
+	var temp string
+	temp, raw, _ = util.PartitionString(raw, ' ')
+	event.Port, _ = strconv.Atoi(temp)
+	return event
+}
+
+func (*TransportLaunchedEvent) Code() EventCode { return EventCodeTransportLaunched }
+
+type ConnBandwidthEvent struct {
+	Raw          string
+	ConnID       string
+	ConnType     string
+	BytesRead    int64
+	BytesWritten int64
+}
+
+func ParseConnBandwidthEvent(raw string) *ConnBandwidthEvent {
+	event := &ConnBandwidthEvent{Raw: raw}
+	ok := true
+	var attr string
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, _ := util.PartitionString(attr, '=')
+		switch key {
+		case "ID":
+			event.ConnID = val
+		case "TYPE":
+			event.ConnType = val
+		case "READ":
+			event.BytesRead, _ = strconv.ParseInt(val, 10, 64)
+		case "WRITTEN":
+			event.BytesWritten, _ = strconv.ParseInt(val, 10, 64)
+		}
+	}
+	return event
+}
+
+func (*ConnBandwidthEvent) Code() EventCode { return EventCodeConnBandwidth }
+
+type CircuitBandwidthEvent struct {
+	Raw          string
+	CircuitID    string
+	BytesRead    int64
+	BytesWritten int64
+	Time         time.Time
+}
+
+func ParseCircuitBandwidthEvent(raw string) *CircuitBandwidthEvent {
+	event := &CircuitBandwidthEvent{Raw: raw}
+	ok := true
+	var attr string
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, _ := util.PartitionString(attr, '=')
+		switch key {
+		case "ID":
+			event.CircuitID = val
+		case "READ":
+			event.BytesRead, _ = strconv.ParseInt(val, 10, 64)
+		case "WRITTEN":
+			event.BytesWritten, _ = strconv.ParseInt(val, 10, 64)
+		case "TIME":
+			event.Time = parseISOTime2Frac(val)
+		}
+	}
+	return event
+}
+
+func (*CircuitBandwidthEvent) Code() EventCode { return EventCodeCircuitBandwidth }
+
+type CellStatsEvent struct {
+	Raw             string
+	CircuitID       string
+	InboundQueueID  string
+	InboundConnID   string
+	InboundAdded    map[string]int
+	InboundRemoved  map[string]int
+	InboundTime     map[string]int
+	OutboundQueueID string
+	OutboundConnID  string
+	OutboundAdded   map[string]int
+	OutboundRemoved map[string]int
+	OutboundTime    map[string]int
+}
+
+func ParseCellStatsEvent(raw string) *CellStatsEvent {
+	event := &CellStatsEvent{Raw: raw}
+	ok := true
+	var attr string
+	toIntMap := func(val string) map[string]int {
+		ret := map[string]int{}
+		for _, v := range strings.Split(val, ",") {
+			key, val, _ := util.PartitionString(v, ':')
+			ret[key], _ = strconv.Atoi(val)
+		}
+		return ret
+	}
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, _ := util.PartitionString(attr, '=')
+		switch key {
+		case "ID":
+			event.CircuitID = val
+		case "InboundQueue":
+			event.InboundQueueID = val
+		case "InboundConn":
+			event.InboundConnID = val
+		case "InboundAdded":
+			event.InboundAdded = toIntMap(val)
+		case "InboundRemoved":
+			event.InboundRemoved = toIntMap(val)
+		case "InboundTime":
+			event.OutboundTime = toIntMap(val)
+		case "OutboundQueue":
+			event.OutboundQueueID = val
+		case "OutboundConn":
+			event.OutboundConnID = val
+		case "OutboundAdded":
+			event.OutboundAdded = toIntMap(val)
+		case "OutboundRemoved":
+			event.OutboundRemoved = toIntMap(val)
+		case "OutboundTime":
+			event.OutboundTime = toIntMap(val)
+		}
+	}
+	return event
+}
+
+func (*CellStatsEvent) Code() EventCode { return EventCodeCellStats }
+
+type TokenBucketEmptyEvent struct {
+	Raw              string
+	BucketName       string
+	ConnID           string
+	ReadBucketEmpty  time.Duration
+	WriteBucketEmpty time.Duration
+	LastRefil        time.Duration
+}
+
+func ParseTokenBucketEmptyEvent(raw string) *TokenBucketEmptyEvent {
+	event := &TokenBucketEmptyEvent{Raw: raw}
+	var ok bool
+	event.BucketName, raw, ok = util.PartitionString(raw, ' ')
+	var attr string
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, _ := util.PartitionString(attr, '=')
+		switch key {
+		case "ID":
+			event.ConnID = val
+		case "READ":
+			i, _ := strconv.ParseInt(val, 10, 64)
+			event.ReadBucketEmpty = time.Duration(i) * time.Millisecond
+		case "WRITTEN":
+			i, _ := strconv.ParseInt(val, 10, 64)
+			event.WriteBucketEmpty = time.Duration(i) * time.Millisecond
+		case "LAST":
+			i, _ := strconv.ParseInt(val, 10, 64)
+			event.LastRefil = time.Duration(i) * time.Millisecond
+		}
+	}
+	return event
+}
+
+func (*TokenBucketEmptyEvent) Code() EventCode { return EventCodeTokenBucketEmpty }
+
+type HSDescEvent struct {
+	Raw        string
+	Action     string
+	Address    string
+	AuthType   string
+	HSDir      string
+	DescID     string
+	Reason     string
+	Replica    int
+	HSDirIndex string
+}
+
+func ParseHSDescEvent(raw string) *HSDescEvent {
+	event := &HSDescEvent{Raw: raw}
+	event.Action, raw, _ = util.PartitionString(raw, ' ')
+	event.Address, raw, _ = util.PartitionString(raw, ' ')
+	event.AuthType, raw, _ = util.PartitionString(raw, ' ')
+	var ok bool
+	event.HSDir, raw, ok = util.PartitionString(raw, ' ')
+	var attr string
+	first := true
+	for ok {
+		attr, raw, ok = util.PartitionString(raw, ' ')
+		key, val, valOk := util.PartitionString(attr, '=')
+		switch key {
+		case "REASON":
+			event.Reason = val
+		case "REPLICA":
+			event.Replica, _ = strconv.Atoi(val)
+		case "HSDIR_INDEX":
+			event.HSDirIndex = val
+		default:
+			if first && !valOk {
+				event.DescID = attr
+			}
+		}
+		first = false
+	}
+	return event
+}
+
+func (*HSDescEvent) Code() EventCode { return EventCodeHSDesc }
+
+type HSDescContentEvent struct {
+	Raw        string
+	Address    string
+	DescID     string
+	HSDir      string
+	Descriptor string
+}
+
+func ParseHSDescContentEvent(raw string) *HSDescContentEvent {
+	event := &HSDescContentEvent{Raw: raw}
+	event.Address, raw, _ = util.PartitionString(raw, ' ')
+	event.DescID, raw, _ = util.PartitionString(raw, ' ')
+	newlineIndex := strings.Index(raw, "\r\n")
+	if newlineIndex != -1 {
+		event.HSDir, event.Descriptor = raw[:newlineIndex], raw[newlineIndex+2:]
+	}
+	return event
+}
+
+func (*HSDescContentEvent) Code() EventCode { return EventCodeHSDescContent }
+
+type NetworkLivenessEvent struct {
+	Raw string
+}
+
+func ParseNetworkLivenessEvent(raw string) *NetworkLivenessEvent {
+	return &NetworkLivenessEvent{Raw: raw}
+}
+
+func (*NetworkLivenessEvent) Code() EventCode { return EventCodeNetworkLiveness }
