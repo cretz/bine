@@ -2,7 +2,9 @@ package controltest
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io"
 	"net/textproto"
 	"os"
 	"strconv"
@@ -19,10 +21,18 @@ type TestContext struct {
 	ExtraTorArgs []string
 	Require      *require.Assertions
 	TestTor      *TestTor
+	DebugWriter  io.Writer
 }
 
 func NewTestContext(ctx context.Context, t *testing.T, extraTorArgs ...string) *TestContext {
-	return &TestContext{Context: ctx, T: t, ExtraTorArgs: extraTorArgs, Require: require.New(t)}
+	ret := &TestContext{Context: ctx, T: t, ExtraTorArgs: extraTorArgs, Require: require.New(t)}
+	testVerboseFlag := flag.Lookup("test.v")
+	if testVerboseFlag != nil && testVerboseFlag.Value != nil && testVerboseFlag.Value.String() == "true" {
+		ret.DebugWriter = os.Stdout
+	} else {
+		ret.ExtraTorArgs = append(append([]string{}, ret.ExtraTorArgs...), "--quiet")
+	}
+	return ret
 }
 
 func NewTestContextConnected(t *testing.T, extraTorArgs ...string) (*TestContext, *control.Conn) {
@@ -76,6 +86,16 @@ func (t *TestContext) ConnectTestTor() (*control.Conn, error) {
 		return nil, err
 	}
 	conn := control.NewConn(textConn)
-	conn.DebugWriter = os.Stdout
+	conn.DebugWriter = t.DebugWriter
 	return conn, nil
+}
+
+func (t *TestContext) DebugEnabled() bool {
+	return t.DebugWriter != nil
+}
+
+func (t *TestContext) Debugf(format string, args ...interface{}) {
+	if w := t.DebugWriter; w != nil {
+		fmt.Fprintf(w, format+"\n", args...)
+	}
 }

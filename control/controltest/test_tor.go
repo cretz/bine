@@ -42,7 +42,6 @@ func StartTestTor(ctx context.Context, extraArgs ...string) (*TestTor, error) {
 		DataDir: dataDir,
 		OrigArgs: append([]string{
 			"-f", torrcFile,
-			// "--quiet",
 			"--DisableNetwork", "1",
 			"--ControlPort", "auto",
 			"--ControlPortWriteToFile", controlPortFile,

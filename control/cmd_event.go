@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +34,76 @@ const (
 	EventCodeStreamBandwidth EventCode = "STREAM_BW"
 )
 
-func (c *Conn) AddEventListener(events []EventCode, ch chan<- Event) error {
+func EventCodes() []EventCode {
+	return []EventCode{
+		EventCodeAddrMap,
+		EventCodeBandwidth,
+		EventCodeCircuit,
+		EventCodeClientsSeen,
+		EventCodeDescChanged,
+		EventCodeGuard,
+		EventCodeLogDebug,
+		EventCodeLogErr,
+		EventCodeLogInfo,
+		EventCodeLogNotice,
+		EventCodeLogWarn,
+		EventCodeNetworkStatus,
+		EventCodeNewConsensus,
+		EventCodeNewDesc,
+		EventCodeORConn,
+		EventCodeStatusClient,
+		EventCodeStatusGeneral,
+		EventCodeStatusServer,
+		EventCodeStream,
+		EventCodeStreamBandwidth,
+	}
+}
+
+// HandleEvents loops until the context is closed dispatching async events. Can dispatch events even after context is
+// done and of course during synchronous request. This will always end with an error, either from ctx.Done() or from an
+// error reading/handling the event.
+func (c *Conn) HandleEvents(ctx context.Context) error {
+	errCh := make(chan error, 1)
+	go func() {
+		for ctx.Err() == nil {
+			if err := c.HandleNextEvent(); err != nil {
+				errCh <- err
+				break
+			}
+		}
+	}()
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// HandleNextEvent attempts to read and handle the next event. It will return on first message seen, event or not.
+// Otherwise it will wait until there is a message read.
+func (c *Conn) HandleNextEvent() error {
+	c.readLock.Lock()
+	defer c.readLock.Unlock()
+	// We'll just peek for the next 3 bytes and see if they are async
+	byts, err := c.conn.R.Peek(3)
+	if err != nil {
+		return err
+	}
+	statusCode, err := strconv.Atoi(string(byts))
+	if err != nil || statusCode != StatusAsyncEvent {
+		return err
+	}
+	// Read the entire thing and handle it
+	resp, err := c.ReadResponse()
+	if err != nil {
+		return err
+	}
+	c.onAsyncResponse(resp)
+	return nil
+}
+
+func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
 	// TODO: do we want to set the local map first? Or do we want to lock on the net request too?
 	c.eventListenersLock.Lock()
 	for _, event := range events {
@@ -48,7 +118,7 @@ func (c *Conn) AddEventListener(events []EventCode, ch chan<- Event) error {
 	return c.sendSetEvents()
 }
 
-func (c *Conn) RemoveEventListener(events []EventCode, ch chan<- Event) error {
+func (c *Conn) RemoveEventListener(ch chan<- Event, events ...EventCode) error {
 	// TODO: do we want to mutate the local map first?
 	c.eventListenersLock.Lock()
 	for _, event := range events {
@@ -87,10 +157,17 @@ func (c *Conn) sendSetEvents() error {
 }
 
 func (c *Conn) relayAsyncEvents(resp *Response) {
-	code, data, _ := util.PartitionString(resp.Reply, ' ')
-	// If there is an element in the data array, use that instead for the data
+	// If there is data, use the first line as the code and
+	var code, data string
 	if len(resp.Data) > 0 {
-		data = resp.Data[0]
+		firstNewline := strings.Index(resp.Data[0], "\r\n")
+		if firstNewline == -1 {
+			return
+		}
+		code, data = resp.Data[0][:firstNewline], resp.Data[0][firstNewline+2:]
+	} else {
+		// Otherwise, the reply line has the data
+		code, data, _ = util.PartitionString(resp.Reply, ' ')
 	}
 	// Only relay if there are chans
 	c.eventListenersLock.RLock()

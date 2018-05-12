@@ -87,8 +87,8 @@ func (c *Conn) ReadResponse() (*Response, error) {
 				return nil, err
 			}
 			dotBodyStr := strings.TrimRight(string(dotBody), "\n\r")
-			c.debugf("Read dot body:\n---\n%v\n---", dotBodyStr)
-			resp.Data = append(resp.Data, line[4:]+dotBodyStr)
+			// c.debugf("Read dot body:\n---\n%v\n---", dotBodyStr)
+			resp.Data = append(resp.Data, line[4:]+"\r\n"+dotBodyStr)
 			dotLines := strings.Split(dotBodyStr, "\n")
 			for _, dotLine := range dotLines[:len(dotLines)-1] {
 				resp.RawLines = append(resp.RawLines, dotLine)

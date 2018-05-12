@@ -25,6 +25,8 @@ type Conn struct {
 	eventListenersLock sync.RWMutex
 	// The value slices can be traversed outside of lock, they are completely replaced on change, never mutated
 	eventListeners map[EventCode][]chan<- Event
+
+	readLock sync.Mutex
 }
 
 func NewConn(conn *textproto.Conn) *Conn {
@@ -47,6 +49,8 @@ func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error
 	if err != nil {
 		return nil, err
 	}
+	c.readLock.Lock()
+	defer c.readLock.Unlock()
 	c.conn.StartResponse(id)
 	defer c.conn.EndResponse(id)
 	// Get the first non-async response
