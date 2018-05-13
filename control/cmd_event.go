@@ -9,9 +9,11 @@ import (
 	"github.com/cretz/bine/util"
 )
 
+// EventCode represents an asynchronous event code (ref control spec 4.1)
 type EventCode string
 
 const (
+	// EventCodeAddrMap is ADDRMAP
 	EventCodeAddrMap           EventCode = "ADDRMAP"
 	EventCodeBandwidth         EventCode = "BW"
 	EventCodeBuildTimeoutSet   EventCode = "BUILDTIMEOUT_SET"

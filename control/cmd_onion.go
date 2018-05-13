@@ -12,27 +12,39 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+// KeyType is a key type for Key in AddOnion.
 type KeyType string
 
 const (
-	KeyTypeNew       KeyType = "NEW"
-	KeyTypeRSA1024   KeyType = "RSA1024"
+	// KeyTypeNew is NEW.
+	KeyTypeNew KeyType = "NEW"
+	// KeyTypeRSA1024 is RSA1024.
+	KeyTypeRSA1024 KeyType = "RSA1024"
+	// KeyTypeED25519V3 is ED25519-V3.
 	KeyTypeED25519V3 KeyType = "ED25519-V3"
 )
 
+// KeyAlgo is a key algorithm for GenKey on AddOnion.
 type KeyAlgo string
 
 const (
-	KeyAlgoBest      KeyAlgo = "BEST"
-	KeyAlgoRSA1024   KeyAlgo = "RSA1024"
+	// KeyAlgoBest is BEST.
+	KeyAlgoBest KeyAlgo = "BEST"
+	// KeyAlgoRSA1024 is RSA1024.
+	KeyAlgoRSA1024 KeyAlgo = "RSA1024"
+	// KeyAlgoED25519V3 is ED25519-V3.
 	KeyAlgoED25519V3 KeyAlgo = "ED25519-V3"
 )
 
+// Key is a type of key to use for AddOnion. Implementations include GenKey, RSAKey, and ED25519Key.
 type Key interface {
+	// Type is the KeyType for AddOnion.
 	Type() KeyType
+	// Blob is the serialized key for AddOnion.
 	Blob() string
 }
 
+// KeyFromString creates a Key for AddOnion based on a response string.
 func KeyFromString(str string) (Key, error) {
 	typ, blob, _ := util.PartitionString(str, ':')
 	switch KeyType(typ) {
@@ -47,14 +59,22 @@ func KeyFromString(str string) (Key, error) {
 	}
 }
 
+// GenKey is a Key for AddOnion that asks Tor to generate a key for the given algorithm.
 type GenKey KeyAlgo
 
+// GenKeyFromBlob creates a GenKey for the given response blob which is a KeyAlgo.
 func GenKeyFromBlob(blob string) GenKey { return GenKey(KeyAlgo(blob)) }
-func (GenKey) Type() KeyType            { return KeyTypeNew }
-func (g GenKey) Blob() string           { return string(g) }
 
+// Type implements Key.Type.
+func (GenKey) Type() KeyType { return KeyTypeNew }
+
+// Blob implements Key.Blob.
+func (g GenKey) Blob() string { return string(g) }
+
+// RSAKey is a Key for AddOnion that is a RSA-1024 key (i.e. v2).
 type RSAKey struct{ *rsa.PrivateKey }
 
+// RSA1024KeyFromBlob creates a RSAKey for the given response blob.
 func RSA1024KeyFromBlob(blob string) (*RSAKey, error) {
 	byts, err := base64.StdEncoding.DecodeString(blob)
 	if err != nil {
@@ -66,13 +86,19 @@ func RSA1024KeyFromBlob(blob string) (*RSAKey, error) {
 	}
 	return &RSAKey{rsaKey}, nil
 }
+
+// Type implements Key.Type.
 func (*RSAKey) Type() KeyType { return KeyTypeRSA1024 }
+
+// Blob implements Key.Blob.
 func (r *RSAKey) Blob() string {
 	return base64.StdEncoding.EncodeToString(x509.MarshalPKCS1PrivateKey(r.PrivateKey))
 }
 
+// ED25519Key is a Key for AddOnion that is a ed25519 key (i.e. v3).
 type ED25519Key ed25519.PrivateKey
 
+// ED25519KeyFromBlob creates a ED25519Key for the given response blob.
 func ED25519KeyFromBlob(blob string) (ED25519Key, error) {
 	byts, err := base64.StdEncoding.DecodeString(blob)
 	if err != nil {
@@ -80,24 +106,40 @@ func ED25519KeyFromBlob(blob string) (ED25519Key, error) {
 	}
 	return ED25519Key(ed25519.PrivateKey(byts)), nil
 }
-func (ED25519Key) Type() KeyType  { return KeyTypeED25519V3 }
+
+// Type implements Key.Type.
+func (ED25519Key) Type() KeyType { return KeyTypeED25519V3 }
+
+// Blob implements Key.Blob.
 func (e ED25519Key) Blob() string { return base64.StdEncoding.EncodeToString(e) }
 
+// AddOnionRequest is a set of request params for AddOnion.
 type AddOnionRequest struct {
-	Key         Key
-	Flags       []string
-	MaxStreams  int
-	Ports       map[string]string
+	// Key is the key to use or GenKey if Tor should generate it.
+	Key Key
+	// Flags are ADD_ONION flags.
+	Flags []string
+	// MaxStreams is ADD_ONION MaxStreams.
+	MaxStreams int
+	// Ports are ADD_ONION Port values. Key is virtual port, value is target port (or can be empty to use virtual port).
+	Ports map[string]string
+	// ClientAuths are ADD_ONION ClientAuth values. If value is empty string, Tor will generate the password.
 	ClientAuths map[string]string
 }
 
+// AddOnionResponse is the response for AddOnion.
 type AddOnionResponse struct {
-	ServiceID   string
-	Key         Key
+	// ServiceID is the ADD_ONION response ServiceID value.
+	ServiceID string
+	// Key is the ADD_ONION response PrivateKey value.
+	Key Key
+	// ClientAuths are the ADD_ONION response ClientAuth values.
 	ClientAuths map[string]string
+	// RawResponse is the raw ADD_ONION response.
 	RawResponse *Response
 }
 
+// AddOnion invokes ADD_ONION and returns its response.
 func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 	// Build command
 	if req.Key == nil {
@@ -148,6 +190,7 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 	return ret, nil
 }
 
+// DelOnion invokes DELONION.
 func (c *Conn) DelOnion(serviceID string) error {
 	return c.sendRequestIgnoreResponse("DELONION %v", serviceID)
 }

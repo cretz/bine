@@ -6,10 +6,12 @@ import (
 	"github.com/cretz/bine/util"
 )
 
+// SetConf invokes SETCONF.
 func (c *Conn) SetConf(entries ...*KeyVal) error {
 	return c.sendSetConf("SETCONF", entries)
 }
 
+// ResetConf invokes RESETCONF.
 func (c *Conn) ResetConf(entries ...*KeyVal) error {
 	return c.sendSetConf("RESETCONF", entries)
 }
@@ -24,6 +26,7 @@ func (c *Conn) sendSetConf(cmd string, entries []*KeyVal) error {
 	return c.sendRequestIgnoreResponse(cmd)
 }
 
+// GetConf invokes GETCONF and returns the values for the requested keys.
 func (c *Conn) GetConf(keys ...string) ([]*KeyVal, error) {
 	resp, err := c.SendRequest("GETCONF %v", strings.Join(keys, " "))
 	if err != nil {
@@ -47,6 +50,7 @@ func (c *Conn) GetConf(keys ...string) ([]*KeyVal, error) {
 	return ret, nil
 }
 
+// SaveConf invokes SAVECONF.
 func (c *Conn) SaveConf(force bool) error {
 	cmd := "SAVECONF"
 	if force {
@@ -55,6 +59,7 @@ func (c *Conn) SaveConf(force bool) error {
 	return c.sendRequestIgnoreResponse(cmd)
 }
 
+// LoadConf invokes LOADCONF.
 func (c *Conn) LoadConf(conf string) error {
 	return c.sendRequestIgnoreResponse("+LOADCONF\r\n%v\r\n.", conf)
 }
