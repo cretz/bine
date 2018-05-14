@@ -11,50 +11,85 @@ import (
 	"time"
 
 	"github.com/cretz/bine/control"
+	"github.com/cretz/bine/process/embedded"
 
 	"github.com/cretz/bine/process"
 )
 
+// Tor is the wrapper around the Tor process and control port connection. It should be created with Start and developers
+// should always call Close when done.
 type Tor struct {
+	// Process is the Tor instance that is running.
 	Process process.Process
+
+	// Control is the Tor controller connection.
 	Control *control.Conn
 
-	ProcessCancelFunc    context.CancelFunc
-	ControlPort          int
-	DataDir              string
+	// ProcessCancelFunc is the context cancellation func for the Tor process. It is used by Close and should not be
+	// called directly. This can be nil.
+	ProcessCancelFunc context.CancelFunc
+
+	// ControlPort is the port that Control is connected on.
+	ControlPort int
+
+	// DataDir is the path to the data directory that Tor is using.
+	DataDir string
+
+	// DeleteDataDirOnClose is true if, when Close is invoked, the entire directory will be deleted.
 	DeleteDataDirOnClose bool
-	DebugWriter          io.Writer
+
+	// DebugWriter is the writer used for debug logs, or nil if debug logs should not be emitted.
+	DebugWriter io.Writer
+
+	// StopProcessOnClose, if true, will attempt to halt the process on close.
+	StopProcessOnClose bool
 }
 
+// StartConf is the configuration used for Start when starting a Tor instance. A default instance with no fields set is
+// the default used for Start.
 type StartConf struct {
-	// TODO: docs...Empty string means just "tor" either locally or on PATH
+	// ExePath is the path to the Tor executable. If it is not present, "tor" is used either locally or on the PATH.
 	ExePath string
-	// TODO: docs...If true, doesn't use exe path, uses statically compiled Tor
+
+	// Embedded is true if Tor is statically compiled. If true, ExePath is ignored.
 	Embedded bool
-	// TODO: docs...If 0, Tor is asked to store the control port in a temporary file in the data directory
+
+	// ControlPort is the port to use for the Tor controller. If it is 0, Tor picks a port for use.
 	ControlPort int
-	//  TODO: docs...If not empty, this is the data directory used and *TempDataDir* fields are unused
+
+	// DataDir is the directory used by Tor. If it is empty, a temporary directory is created in TempDataDirBase.
 	DataDir string
-	// TODO: docs...by default we do cookie auth, this disables it
-	DisableCookieAuth bool
-	// TODO: docs...by default this authenticates
-	DisableEagerAuth bool
-	// TODO: docs...by default network is disabled
-	EnableNetwork bool
-	//  TODO: docs...If not empty, this is the parent directory that a child dir is created for data. If empty, the
-	// current dir is assumed. This has no effect if DataDir is set.
+
+	// TempDataDirBase is the parent directory that a temporary data directory will be created under for use by Tor.
+	// This is ignored if DataDir is not empty. If empty it is assumed to be the current working directory.
 	TempDataDirBase string
-	//  TODO: docs...If true the temporary data dir is not deleted on close. This has no effect if DataDir is set.
+
+	// RetainTempDataDir, if true, will not set the created temporary data directory to be deleted on close. This is
+	// ignored if DataDir is not empty.
 	RetainTempDataDir bool
-	//  TODO: docs...Any extra CLI arguments to pass to Tor. This are applied after other CLI args.
+
+	// DisableCookieAuth, if true, will not use the default SAFECOOKIE authentication mechanism for the Tor controller.
+	DisableCookieAuth bool
+
+	// DisableEagerAuth, if true, will not authenticate on Start.
+	DisableEagerAuth bool
+
+	// EnableNetwork, if true, will connect to the wider Tor network on start.
+	EnableNetwork bool
+
+	// ExtraArgs is the set of extra args passed to the Tor instance when started.
 	ExtraArgs []string
-	// TODO: docs...If not present, a blank torrc file is placed in the data dir and used
+
+	// TorrcFile is the torrc file to on start. If empty, a blank torrc is created in the data directory and is used
+	// instead.
 	TorrcFile string
-	// TODO: docs...
+
+	// DebugWriter is the writer to use for debug logs, or nil for no debug logs.
 	DebugWriter io.Writer
 }
 
-// TODO: docs...conf can be nil for defaults, note on error the process could still be running
+// Start a Tor instance and connect to it. If ctx is nil, context.Background() is used. If conf is nil, a default
+// instance is used.
 func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -62,7 +97,7 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 	if conf == nil {
 		conf = &StartConf{}
 	}
-	tor := &Tor{DataDir: conf.DataDir, DebugWriter: conf.DebugWriter}
+	tor := &Tor{DataDir: conf.DataDir, DebugWriter: conf.DebugWriter, StopProcessOnClose: true}
 	// Create the data dir
 	if tor.DataDir == "" {
 		tempBase := conf.TempDataDirBase
@@ -102,7 +137,7 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	// Get the creator
 	var creator process.Creator
 	if conf.Embedded {
-		return fmt.Errorf("Embedded Tor not yet supported")
+		creator = embedded.NewCreator()
 	} else {
 		torPath := conf.ExePath
 		if torPath == "" {
@@ -196,12 +231,13 @@ func (t *Tor) connectController(ctx context.Context, conf *StartConf) error {
 	return nil
 }
 
+// Close sends a halt to the Tor process if it can, closes the controller connection, and stops the process.
 func (t *Tor) Close() error {
 	errs := []error{}
 	// If controller is authenticated, send the quit signal to the process. Otherwise, just close the controller.
 	sentHalt := false
 	if t.Control != nil {
-		if t.Control.Authenticated {
+		if t.Control.Authenticated && t.StopProcessOnClose {
 			if err := t.Control.Signal("HALT"); err != nil {
 				errs = append(errs, fmt.Errorf("Unable to signal halt: %v", err))
 			} else {
@@ -217,7 +253,7 @@ func (t *Tor) Close() error {
 	}
 	if t.Process != nil {
 		// If we didn't halt, we have to force kill w/ the cancel func
-		if !sentHalt {
+		if !sentHalt && t.StopProcessOnClose {
 			t.ProcessCancelFunc()
 		}
 		// Wait for a bit to make sure it stopped
