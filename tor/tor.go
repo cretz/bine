@@ -16,8 +16,9 @@ import (
 	"github.com/cretz/bine/process"
 )
 
-// Tor is the wrapper around the Tor process and control port connection. It should be created with Start and developers
-// should always call Close when done.
+// Tor is the wrapper around the Tor process and control port connection. It
+// should be created with Start and developers should always call Close when
+// done.
 type Tor struct {
 	// Process is the Tor instance that is running.
 	Process process.Process
@@ -25,8 +26,8 @@ type Tor struct {
 	// Control is the Tor controller connection.
 	Control *control.Conn
 
-	// ProcessCancelFunc is the context cancellation func for the Tor process. It is used by Close and should not be
-	// called directly. This can be nil.
+	// ProcessCancelFunc is the context cancellation func for the Tor process.
+	// It is used by Close and should not be called directly. This can be nil.
 	ProcessCancelFunc context.CancelFunc
 
 	// ControlPort is the port that Control is connected on.
@@ -35,40 +36,49 @@ type Tor struct {
 	// DataDir is the path to the data directory that Tor is using.
 	DataDir string
 
-	// DeleteDataDirOnClose is true if, when Close is invoked, the entire directory will be deleted.
+	// DeleteDataDirOnClose is true if, when Close is invoked, the entire
+	// directory will be deleted.
 	DeleteDataDirOnClose bool
 
-	// DebugWriter is the writer used for debug logs, or nil if debug logs should not be emitted.
+	// DebugWriter is the writer used for debug logs, or nil if debug logs
+	// should not be emitted.
 	DebugWriter io.Writer
 
 	// StopProcessOnClose, if true, will attempt to halt the process on close.
 	StopProcessOnClose bool
 }
 
-// StartConf is the configuration used for Start when starting a Tor instance. A default instance with no fields set is
-// the default used for Start.
+// StartConf is the configuration used for Start when starting a Tor instance. A
+// default instance with no fields set is the default used for Start.
 type StartConf struct {
-	// ExePath is the path to the Tor executable. If it is not present, "tor" is used either locally or on the PATH.
+	// ExePath is the path to the Tor executable. If it is not present, "tor" is
+	// used either locally or on the PATH.
 	ExePath string
 
-	// Embedded is true if Tor is statically compiled. If true, ExePath is ignored.
+	// Embedded is true if Tor is statically compiled. If true, ExePath is
+	// ignored.
 	Embedded bool
 
-	// ControlPort is the port to use for the Tor controller. If it is 0, Tor picks a port for use.
+	// ControlPort is the port to use for the Tor controller. If it is 0, Tor
+	// picks a port for use.
 	ControlPort int
 
-	// DataDir is the directory used by Tor. If it is empty, a temporary directory is created in TempDataDirBase.
+	// DataDir is the directory used by Tor. If it is empty, a temporary
+	// directory is created in TempDataDirBase.
 	DataDir string
 
-	// TempDataDirBase is the parent directory that a temporary data directory will be created under for use by Tor.
-	// This is ignored if DataDir is not empty. If empty it is assumed to be the current working directory.
+	// TempDataDirBase is the parent directory that a temporary data directory
+	// will be created under for use by Tor. This is ignored if DataDir is not
+	// empty. If empty it is assumed to be the current working directory.
 	TempDataDirBase string
 
-	// RetainTempDataDir, if true, will not set the created temporary data directory to be deleted on close. This is
-	// ignored if DataDir is not empty.
+	// RetainTempDataDir, if true, will not set the created temporary data
+	// directory to be deleted on close. This is ignored if DataDir is not
+	// empty.
 	RetainTempDataDir bool
 
-	// DisableCookieAuth, if true, will not use the default SAFECOOKIE authentication mechanism for the Tor controller.
+	// DisableCookieAuth, if true, will not use the default SAFECOOKIE
+	// authentication mechanism for the Tor controller.
 	DisableCookieAuth bool
 
 	// DisableEagerAuth, if true, will not authenticate on Start.
@@ -77,19 +87,21 @@ type StartConf struct {
 	// EnableNetwork, if true, will connect to the wider Tor network on start.
 	EnableNetwork bool
 
-	// ExtraArgs is the set of extra args passed to the Tor instance when started.
+	// ExtraArgs is the set of extra args passed to the Tor instance when
+	// started.
 	ExtraArgs []string
 
-	// TorrcFile is the torrc file to on start. If empty, a blank torrc is created in the data directory and is used
-	// instead.
+	// TorrcFile is the torrc file to on start. If empty, a blank torrc is
+	// created in the data directory and is used instead.
 	TorrcFile string
 
-	// DebugWriter is the writer to use for debug logs, or nil for no debug logs.
+	// DebugWriter is the writer to use for debug logs, or nil for no debug
+	// logs.
 	DebugWriter io.Writer
 }
 
-// Start a Tor instance and connect to it. If ctx is nil, context.Background() is used. If conf is nil, a default
-// instance is used.
+// Start a Tor instance and connect to it. If ctx is nil, context.Background()
+// is used. If conf is nil, a default instance is used.
 func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -231,7 +243,8 @@ func (t *Tor) connectController(ctx context.Context, conf *StartConf) error {
 	return nil
 }
 
-// Close sends a halt to the Tor process if it can, closes the controller connection, and stops the process.
+// Close sends a halt to the Tor process if it can, closes the controller
+// connection, and stops the process.
 func (t *Tor) Close() error {
 	errs := []error{}
 	// If controller is authenticated, send the quit signal to the process. Otherwise, just close the controller.

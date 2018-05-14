@@ -9,15 +9,14 @@ import (
 
 // Conn is the connection to the Tor control port.
 type Conn struct {
-	// No debug logs if nil
-	// DebugWriter is the writer that debug logs for this library (not Tor itself) will be written to. If nil, no debug
-	// logs are generated/written.
+	// DebugWriter is the writer that debug logs for this library (not Tor
+	// itself) will be written to. If nil, no debug logs are generated/written.
 	DebugWriter io.Writer
 
 	// This is the underlying connection.
 	conn *textproto.Conn
 
-	// This is set lazily by ProtocolInfo()
+	// This is set lazily by ProtocolInfo().
 	protocolInfo *ProtocolInfo
 
 	// True if Authenticate has been called successfully.
@@ -25,12 +24,14 @@ type Conn struct {
 
 	// The lock fot eventListeners
 	eventListenersLock sync.RWMutex
-	// The value slices can be traversed outside of lock, they are completely replaced on change, never mutated. But the
-	// map itself must be locked on when reading or writing.
+	// The value slices can be traversed outside of lock, they are completely
+	// replaced on change, never mutated. But the map itself must be locked on
+	// when reading or writing.
 	eventListeners map[EventCode][]chan<- Event
 
-	// This mutex is locked on when an entire response needs to be read. It helps synchronize accesses to the response
-	// by the asynchronous response listeners and the synchronous responses.
+	// This mutex is locked on when an entire response needs to be read. It
+	// helps synchronize accesses to the response by the asynchronous response
+	// listeners and the synchronous responses.
 	readLock sync.Mutex
 }
 
@@ -47,8 +48,9 @@ func (c *Conn) sendRequestIgnoreResponse(format string, args ...interface{}) err
 	return err
 }
 
-// SendRequest sends a synchronous request to Tor and awaits the response. If the response errors, the error result will
-// be set, but the response will be set also. This is usually not directly used by callers, but instead called by
+// SendRequest sends a synchronous request to Tor and awaits the response. If
+// the response errors, the error result will be set, but the response will be
+// set also. This is usually not directly used by callers, but instead called by
 // higher-level methods.
 func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error) {
 	if c.debugEnabled() {
@@ -76,8 +78,9 @@ func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error
 	return resp, err
 }
 
-// Close sends a QUIT and closes the underlying Tor connection. This does not error if the QUIT is not accepted but does
-// relay any error that occurs while closing the underlying connection.
+// Close sends a QUIT and closes the underlying Tor connection. This does not
+// error if the QUIT is not accepted but does relay any error that occurs while
+// closing the underlying connection.
 func (c *Conn) Close() error {
 	// Ignore the response and ignore the error
 	c.Quit()

@@ -48,8 +48,9 @@ const (
 	EventCodeTransportLaunched EventCode = "TRANSPORT_LAUNCHED"
 )
 
-// EventCodeUnrecognized is a special event code that is only used with AddEventListener and RemoveEventListener to listen
-// for events that are unrecognized by this library (i.e. UnrecognizedEvent).
+// EventCodeUnrecognized is a special event code that is only used with
+// AddEventListener and RemoveEventListener to listen for events that are
+// unrecognized by this library (i.e. UnrecognizedEvent).
 var EventCodeUnrecognized EventCode = "<unrecognized>"
 
 var recognizedEventCodes = []EventCode{
@@ -97,16 +98,18 @@ func mapEventCodes() map[EventCode]struct{} {
 	return ret
 }
 
-// EventCodes returns a new slice of all event codes that are recognized (i.e. does not include EventCodeUnrecognized).
+// EventCodes returns a new slice of all event codes that are recognized (i.e.
+// does not include EventCodeUnrecognized).
 func EventCodes() []EventCode {
 	ret := make([]EventCode, len(recognizedEventCodes))
 	copy(ret, recognizedEventCodes)
 	return ret
 }
 
-// HandleEvents loops until the context is closed dispatching async events. Can dispatch events even after context is
-// done and of course during synchronous request. This will always end with an error, either from ctx.Done() or from an
-// error reading/handling the event.
+// HandleEvents loops until the context is closed dispatching async events. Can
+// dispatch events even after context is done and of course during synchronous
+// request. This will always end with an error, either from ctx.Done() or from
+// an error reading/handling the event.
 func (c *Conn) HandleEvents(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
@@ -125,8 +128,9 @@ func (c *Conn) HandleEvents(ctx context.Context) error {
 	}
 }
 
-// HandleNextEvent attempts to read and handle the next event. It will return on first message seen, event or not.
-// Otherwise it will wait until there is a message read.
+// HandleNextEvent attempts to read and handle the next event. It will return on
+// first message seen, event or not. Otherwise it will wait until there is a
+// message read.
 func (c *Conn) HandleNextEvent() error {
 	c.readLock.Lock()
 	defer c.readLock.Unlock()
@@ -148,10 +152,12 @@ func (c *Conn) HandleNextEvent() error {
 	return nil
 }
 
-// AddEventListener adds the given channel as an event listener for the given events. Then Tor is notified about which
-// events should be listened to. Callers are expected to call RemoveEventListener for the channel and all event codes
-// used here before closing the channel. If no events are provided, this is essentially a no-op. The
-// EventCodeUnrecognized event code can be used to listen for unrecognized events.
+// AddEventListener adds the given channel as an event listener for the given
+// events. Then Tor is notified about which events should be listened to.
+// Callers are expected to call RemoveEventListener for the channel and all
+// event codes used here before closing the channel. If no events are provided,
+// this is essentially a no-op. The EventCodeUnrecognized event code can be used
+// to listen for unrecognized events.
 func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
 	// TODO: do we want to set the local map first? Or do we want to lock on the net request too?
 	c.eventListenersLock.Lock()
@@ -167,9 +173,11 @@ func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
 	return c.sendSetEvents()
 }
 
-// RemoveEventListener removes the given channel from being sent to by the given event codes. It is not an error to
-// remove a channel from events AddEventListener was not called for. Tor is notified about events which may no longer be
-// listened to. If no events are provided, this is essentially a no-op.
+// RemoveEventListener removes the given channel from being sent to by the given
+// event codes. It is not an error to remove a channel from events
+// AddEventListener was not called for. Tor is notified about events which may
+// no longer be listened to. If no events are provided, this is essentially a
+// no-op.
 func (c *Conn) RemoveEventListener(ch chan<- Event, events ...EventCode) error {
 	c.eventListenersLock.Lock()
 	for _, event := range events {
@@ -266,14 +274,16 @@ func parseISOTime2Frac(str string) time.Time {
 	return ret
 }
 
-// Event is the base interface for all known asynchronous
+// Event is the base interface for all known asynchronous events.
 type Event interface {
 	Code() EventCode
 }
 
-// ParseEvent returns an Event for the given code and data info. Raw is the raw single line if it is a single-line
-// event (even if it has newlines), dataArray is the array of lines for multi-line events. Only one of the two needs to
-// be set. The response is never nil, but may be UnrecognizedEvent. Format errors are ignored per the Tor spec.
+// ParseEvent returns an Event for the given code and data info. Raw is the raw
+// single line if it is a single-line event (even if it has newlines), dataArray
+// is the array of lines for multi-line events. Only one of the two needs to be
+// set. The response is never nil, but may be UnrecognizedEvent. Format errors
+// are ignored per the Tor spec.
 func ParseEvent(code EventCode, raw string, dataArray []string) Event {
 	switch code {
 	case EventCodeAddrMap:

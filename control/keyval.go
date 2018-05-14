@@ -1,17 +1,18 @@
 package control
 
-// KeyVal is a simple key-value struct. In cases where Val can be nil, an empty string represents that unless
-// ValSetAndEmpty is true.
+// KeyVal is a simple key-value struct. In cases where Val can be nil, an empty
+// string represents that unless ValSetAndEmpty is true.
 type KeyVal struct {
 	// Key is the always-present key
 	Key string
 
-	// Val is the value. If it's an empty string and nils are accepted/supported where this is used, it means nil unless
-	// ValSetAndEmpty is true.
+	// Val is the value. If it's an empty string and nils are accepted/supported
+	// where this is used, it means nil unless ValSetAndEmpty is true.
 	Val string
 
-	// ValSetAndEmpty is true when Val is an empty string, the associated command supports nils, and Val should NOT be
-	// treated as nil. False otherwise.
+	// ValSetAndEmpty is true when Val is an empty string, the associated
+	// command supports nils, and Val should NOT be treated as nil. False
+	// otherwise.
 	ValSetAndEmpty bool
 }
 
@@ -20,8 +21,8 @@ func NewKeyVal(key string, val string) *KeyVal {
 	return &KeyVal{Key: key, Val: val}
 }
 
-// KeyVals creates multiple new key-value pairs from the given strings. The provided set of strings must have a length
-// that is a multiple of 2.
+// KeyVals creates multiple new key-value pairs from the given strings. The
+// provided set of strings must have a length that is a multiple of 2.
 func KeyVals(keysAndVals ...string) []*KeyVal {
 	if len(keysAndVals)%2 != 0 {
 		panic("Expected multiple of 2")

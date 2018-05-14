@@ -36,7 +36,8 @@ const (
 	KeyAlgoED25519V3 KeyAlgo = "ED25519-V3"
 )
 
-// Key is a type of key to use for AddOnion. Implementations include GenKey, RSAKey, and ED25519Key.
+// Key is a type of key to use for AddOnion. Implementations include GenKey,
+// RSAKey, and ED25519Key.
 type Key interface {
 	// Type is the KeyType for AddOnion.
 	Type() KeyType
@@ -59,10 +60,12 @@ func KeyFromString(str string) (Key, error) {
 	}
 }
 
-// GenKey is a Key for AddOnion that asks Tor to generate a key for the given algorithm.
+// GenKey is a Key for AddOnion that asks Tor to generate a key for the given
+// algorithm.
 type GenKey KeyAlgo
 
-// GenKeyFromBlob creates a GenKey for the given response blob which is a KeyAlgo.
+// GenKeyFromBlob creates a GenKey for the given response blob which is a
+// KeyAlgo.
 func GenKeyFromBlob(blob string) GenKey { return GenKey(KeyAlgo(blob)) }
 
 // Type implements Key.Type.
@@ -121,9 +124,11 @@ type AddOnionRequest struct {
 	Flags []string
 	// MaxStreams is ADD_ONION MaxStreams.
 	MaxStreams int
-	// Ports are ADD_ONION Port values. Key is virtual port, value is target port (or can be empty to use virtual port).
+	// Ports are ADD_ONION Port values. Key is virtual port, value is target
+	// port (or can be empty to use virtual port).
 	Ports map[string]string
-	// ClientAuths are ADD_ONION ClientAuth values. If value is empty string, Tor will generate the password.
+	// ClientAuths are ADD_ONION ClientAuth values. If value is empty string,
+	// Tor will generate the password.
 	ClientAuths map[string]string
 }
 

@@ -9,9 +9,11 @@ import (
 	"strings"
 )
 
-// Authenticate authenticates with the Tor instance using the "best" possible authentication method if not already
-// authenticated and sets the Authenticated field. The password argument is optional, and will only be used if the
-// "SAFECOOKIE" and "NULL" authentication methods are not available and "HASHEDPASSWORD" is.
+// Authenticate authenticates with the Tor instance using the "best" possible
+// authentication method if not already authenticated and sets the Authenticated
+// field. The password argument is optional, and will only be used if the
+// "SAFECOOKIE" and "NULL" authentication methods are not available and
+// "HASHEDPASSWORD" is.
 func (c *Conn) Authenticate(password string) error {
 	if c.Authenticated {
 		return nil

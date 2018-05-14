@@ -8,22 +8,25 @@ import (
 
 // Response is a response to a control port command or an asynchronous event.
 type Response struct {
-	// Err is the status code and string representation associated with a response. Responses that have completed
-	// successfully will also have Err set to indicate such.
+	// Err is the status code and string representation associated with a
+	// response. Responses that have completed successfully will also have Err
+	// set to indicate such.
 	Err *textproto.Error
 
 	// Reply is the text on the EndReplyLine of the response.
 	Reply string
 
-	// Data is the MidReplyLines/DataReplyLines of the response. Dot encoded data is "decoded" and presented as a single
-	// string (terminal ".CRLF" removed, all intervening CRs stripped).
+	// Data is the MidReplyLines/DataReplyLines of the response. Dot encoded
+	// data is "decoded" and presented as a single string (terminal ".CRLF"
+	// removed, all intervening CRs stripped).
 	Data []string
 
 	// RawLines is all of the lines of a response, without CRLFs.
 	RawLines []string
 }
 
-// IsOk returns true if the response status code indicates success or an asynchronous event.
+// IsOk returns true if the response status code indicates success or an
+// asynchronous event.
 func (r *Response) IsOk() bool {
 	switch r.Err.Code {
 	case StatusOk, StatusOkUnnecessary, StatusAsyncEvent:
@@ -33,7 +36,8 @@ func (r *Response) IsOk() bool {
 	}
 }
 
-// DataWithReply returns a combination of Data and Reply to give a full set of the lines of the response.
+// DataWithReply returns a combination of Data and Reply to give a full set of
+// the lines of the response.
 func (r *Response) DataWithReply() []string {
 	ret := make([]string, len(r.Data)+1)
 	copy(ret, r.Data)
@@ -41,7 +45,7 @@ func (r *Response) DataWithReply() []string {
 	return ret
 }
 
-// IsAsync returns true if the response is an asyncrhonous event.
+// IsAsync returns true if the response is an asynchronous event.
 func (r *Response) IsAsync() bool {
 	return r.Err.Code == StatusAsyncEvent
 }
