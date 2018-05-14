@@ -12,8 +12,8 @@ import (
 // EventCode represents an asynchronous event code (ref control spec 4.1).
 type EventCode string
 
+// Event codes
 const (
-	// EventCodeAddrMap is ADDRMAP
 	EventCodeAddrMap           EventCode = "ADDRMAP"
 	EventCodeBandwidth         EventCode = "BW"
 	EventCodeBuildTimeoutSet   EventCode = "BUILDTIMEOUT_SET"
@@ -48,41 +48,60 @@ const (
 	EventCodeTransportLaunched EventCode = "TRANSPORT_LAUNCHED"
 )
 
-func EventCodes() []EventCode {
-	return []EventCode{
-		EventCodeAddrMap,
-		EventCodeBandwidth,
-		EventCodeBuildTimeoutSet,
-		EventCodeCellStats,
-		EventCodeCircuit,
-		EventCodeCircuitBandwidth,
-		EventCodeCircuitMinor,
-		EventCodeClientsSeen,
-		EventCodeConfChanged,
-		EventCodeConnBandwidth,
-		EventCodeDescChanged,
-		EventCodeGuard,
-		EventCodeHSDesc,
-		EventCodeHSDescContent,
-		EventCodeLogDebug,
-		EventCodeLogErr,
-		EventCodeLogInfo,
-		EventCodeLogNotice,
-		EventCodeLogWarn,
-		EventCodeNetworkLiveness,
-		EventCodeNetworkStatus,
-		EventCodeNewConsensus,
-		EventCodeNewDesc,
-		EventCodeORConn,
-		EventCodeSignal,
-		EventCodeStatusClient,
-		EventCodeStatusGeneral,
-		EventCodeStatusServer,
-		EventCodeStream,
-		EventCodeStreamBandwidth,
-		EventCodeTokenBucketEmpty,
-		EventCodeTransportLaunched,
+// EventCodeUnrecognized is a special event code that is only used with AddEventListener and RemoveEventListener to listen
+// for events that are unrecognized by this library (i.e. UnrecognizedEvent).
+var EventCodeUnrecognized EventCode = "<unrecognized>"
+
+var recognizedEventCodes = []EventCode{
+	EventCodeAddrMap,
+	EventCodeBandwidth,
+	EventCodeBuildTimeoutSet,
+	EventCodeCellStats,
+	EventCodeCircuit,
+	EventCodeCircuitBandwidth,
+	EventCodeCircuitMinor,
+	EventCodeClientsSeen,
+	EventCodeConfChanged,
+	EventCodeConnBandwidth,
+	EventCodeDescChanged,
+	EventCodeGuard,
+	EventCodeHSDesc,
+	EventCodeHSDescContent,
+	EventCodeLogDebug,
+	EventCodeLogErr,
+	EventCodeLogInfo,
+	EventCodeLogNotice,
+	EventCodeLogWarn,
+	EventCodeNetworkLiveness,
+	EventCodeNetworkStatus,
+	EventCodeNewConsensus,
+	EventCodeNewDesc,
+	EventCodeORConn,
+	EventCodeSignal,
+	EventCodeStatusClient,
+	EventCodeStatusGeneral,
+	EventCodeStatusServer,
+	EventCodeStream,
+	EventCodeStreamBandwidth,
+	EventCodeTokenBucketEmpty,
+	EventCodeTransportLaunched,
+}
+
+var recognizedEventCodesByCode = mapEventCodes()
+
+func mapEventCodes() map[EventCode]struct{} {
+	ret := make(map[EventCode]struct{}, len(recognizedEventCodes))
+	for _, eventCode := range recognizedEventCodes {
+		ret[eventCode] = struct{}{}
 	}
+	return ret
+}
+
+// EventCodes returns a new slice of all event codes that are recognized (i.e. does not include EventCodeUnrecognized).
+func EventCodes() []EventCode {
+	ret := make([]EventCode, len(recognizedEventCodes))
+	copy(ret, recognizedEventCodes)
+	return ret
 }
 
 // HandleEvents loops until the context is closed dispatching async events. Can dispatch events even after context is
@@ -125,10 +144,14 @@ func (c *Conn) HandleNextEvent() error {
 	if err != nil {
 		return err
 	}
-	c.onAsyncResponse(resp)
+	c.relayAsyncEvents(resp)
 	return nil
 }
 
+// AddEventListener adds the given channel as an event listener for the given events. Then Tor is notified about which
+// events should be listened to. Callers are expected to call RemoveEventListener for the channel and all event codes
+// used here before closing the channel. If no events are provided, this is essentially a no-op. The
+// EventCodeUnrecognized event code can be used to listen for unrecognized events.
 func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
 	// TODO: do we want to set the local map first? Or do we want to lock on the net request too?
 	c.eventListenersLock.Lock()
@@ -144,8 +167,10 @@ func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
 	return c.sendSetEvents()
 }
 
+// RemoveEventListener removes the given channel from being sent to by the given event codes. It is not an error to
+// remove a channel from events AddEventListener was not called for. Tor is notified about events which may no longer be
+// listened to. If no events are provided, this is essentially a no-op.
 func (c *Conn) RemoveEventListener(ch chan<- Event, events ...EventCode) error {
-	// TODO: do we want to mutate the local map first?
 	c.eventListenersLock.Lock()
 	for _, event := range events {
 		arr := c.eventListeners[event]
@@ -200,14 +225,18 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 		code, data, _ = util.PartitionString(resp.Reply, ' ')
 	}
 	// Only relay if there are chans
+	eventCode := EventCode(code)
 	c.eventListenersLock.RLock()
-	chans := c.eventListeners[EventCode(code)]
+	chans := c.eventListeners[eventCode]
+	if _, ok := recognizedEventCodesByCode[eventCode]; !ok {
+		chans = append(chans, c.eventListeners[EventCodeUnrecognized]...)
+	}
 	c.eventListenersLock.RUnlock()
 	if len(chans) == 0 {
 		return
 	}
 	// Parse the event and only send if known event
-	if event := ParseEvent(EventCode(code), data, dataArray); event != nil {
+	if event := ParseEvent(eventCode, data, dataArray); event != nil {
 		for _, ch := range chans {
 			// Just send, if closed or blocking, that's not our problem
 			ch <- event
@@ -215,7 +244,7 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 	}
 }
 
-// zero on fail
+// Zero on fail
 func parseISOTime(str string) time.Time {
 	// Essentially time.RFC3339 but without 'T' or TZ info
 	const layout = "2006-01-02 15:04:05"
@@ -226,7 +255,7 @@ func parseISOTime(str string) time.Time {
 	return ret
 }
 
-// zero on fail
+// Zero on fail
 func parseISOTime2Frac(str string) time.Time {
 	// Essentially time.RFC3339Nano but without TZ info
 	const layout = "2006-01-02T15:04:05.999999999"
@@ -237,10 +266,14 @@ func parseISOTime2Frac(str string) time.Time {
 	return ret
 }
 
+// Event is the base interface for all known asynchronous
 type Event interface {
 	Code() EventCode
 }
 
+// ParseEvent returns an Event for the given code and data info. Raw is the raw single line if it is a single-line
+// event (even if it has newlines), dataArray is the array of lines for multi-line events. Only one of the two needs to
+// be set. The response is never nil, but may be UnrecognizedEvent. Format errors are ignored per the Tor spec.
 func ParseEvent(code EventCode, raw string, dataArray []string) Event {
 	switch code {
 	case EventCodeAddrMap:
@@ -296,10 +329,11 @@ func ParseEvent(code EventCode, raw string, dataArray []string) Event {
 	case EventCodeTransportLaunched:
 		return ParseTransportLaunchedEvent(raw)
 	default:
-		return nil
+		return ParseUnrecognizedEvent(code, raw, dataArray)
 	}
 }
 
+// CircuitEvent is CIRC in spec.
 type CircuitEvent struct {
 	Raw           string
 	CircuitID     string
@@ -316,6 +350,7 @@ type CircuitEvent struct {
 	SocksPassword string
 }
 
+// ParseCircuitEvent parses the event.
 func ParseCircuitEvent(raw string) *CircuitEvent {
 	event := &CircuitEvent{Raw: raw}
 	event.CircuitID, raw, _ = util.PartitionString(raw, ' ')
@@ -355,8 +390,10 @@ func ParseCircuitEvent(raw string) *CircuitEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*CircuitEvent) Code() EventCode { return EventCodeCircuit }
 
+// StreamEvent is STREAM in spec.
 type StreamEvent struct {
 	Raw           string
 	StreamID      string
@@ -372,6 +409,7 @@ type StreamEvent struct {
 	Purpose       string
 }
 
+// ParseStreamEvent parses the event.
 func ParseStreamEvent(raw string) *StreamEvent {
 	event := &StreamEvent{Raw: raw}
 	event.StreamID, raw, _ = util.PartitionString(raw, ' ')
@@ -407,8 +445,10 @@ func ParseStreamEvent(raw string) *StreamEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*StreamEvent) Code() EventCode { return EventCodeStream }
 
+// ORConnEvent is ORCONN in spec.
 type ORConnEvent struct {
 	Raw         string
 	Target      string
@@ -418,6 +458,7 @@ type ORConnEvent struct {
 	ConnID      string
 }
 
+// ParseORConnEvent parses the event.
 func ParseORConnEvent(raw string) *ORConnEvent {
 	event := &ORConnEvent{Raw: raw}
 	event.Target, raw, _ = util.PartitionString(raw, ' ')
@@ -439,14 +480,17 @@ func ParseORConnEvent(raw string) *ORConnEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*ORConnEvent) Code() EventCode { return EventCodeORConn }
 
+// BandwidthEvent is BW in spec.
 type BandwidthEvent struct {
 	Raw          string
 	BytesRead    int64
 	BytesWritten int64
 }
 
+// ParseBandwidthEvent parses the event.
 func ParseBandwidthEvent(raw string) *BandwidthEvent {
 	event := &BandwidthEvent{Raw: raw}
 	var temp string
@@ -457,30 +501,38 @@ func ParseBandwidthEvent(raw string) *BandwidthEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*BandwidthEvent) Code() EventCode { return EventCodeBandwidth }
 
+// LogEvent is DEBUG, ERR, INFO, NOTICE, and WARN in spec.
 type LogEvent struct {
 	Severity EventCode
 	Raw      string
 }
 
+// ParseLogEvent parses the event.
 func ParseLogEvent(severity EventCode, raw string) *LogEvent {
 	return &LogEvent{Severity: severity, Raw: raw}
 }
 
+// Code implements Event.Code
 func (l *LogEvent) Code() EventCode { return l.Severity }
 
+// NewDescEvent is NEWDESC in spec.
 type NewDescEvent struct {
 	Raw   string
 	Descs []string
 }
 
+// ParseNewDescEvent parses the event.
 func ParseNewDescEvent(raw string) *NewDescEvent {
 	return &NewDescEvent{Raw: raw, Descs: strings.Split(raw, " ")}
 }
 
+// Code implements Event.Code
 func (*NewDescEvent) Code() EventCode { return EventCodeNewDesc }
 
+// AddrMapEvent is ADDRMAP in spec.
 type AddrMapEvent struct {
 	Raw        string
 	Address    string
@@ -492,6 +544,7 @@ type AddrMapEvent struct {
 	Cached string
 }
 
+// ParseAddrMapEvent parses the event.
 func ParseAddrMapEvent(raw string) *AddrMapEvent {
 	event := &AddrMapEvent{Raw: raw}
 	event.Address, raw, _ = util.PartitionString(raw, ' ')
@@ -516,18 +569,23 @@ func ParseAddrMapEvent(raw string) *AddrMapEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*AddrMapEvent) Code() EventCode { return EventCodeAddrMap }
 
+// DescChangedEvent is DESCCHANGED in spec.
 type DescChangedEvent struct {
 	Raw string
 }
 
+// ParseDescChangedEvent parses the event.
 func ParseDescChangedEvent(raw string) *DescChangedEvent {
 	return &DescChangedEvent{Raw: raw}
 }
 
+// Code implements Event.Code
 func (*DescChangedEvent) Code() EventCode { return EventCodeDescChanged }
 
+// StatusEvent is STATUS_CLIENT, STATUS_GENERAL, and STATUS_SERVER in spec.
 type StatusEvent struct {
 	Raw       string
 	Type      EventCode
@@ -536,6 +594,7 @@ type StatusEvent struct {
 	Arguments map[string]string
 }
 
+// ParseStatusEvent parses the event.
 func ParseStatusEvent(typ EventCode, raw string) *StatusEvent {
 	event := &StatusEvent{Raw: raw, Type: typ, Arguments: map[string]string{}}
 	event.Severity, raw, _ = util.PartitionString(raw, ' ')
@@ -550,8 +609,10 @@ func ParseStatusEvent(typ EventCode, raw string) *StatusEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (s *StatusEvent) Code() EventCode { return s.Type }
 
+// GuardEvent is GUARD in spec.
 type GuardEvent struct {
 	Raw    string
 	Type   string
@@ -559,6 +620,7 @@ type GuardEvent struct {
 	Status string
 }
 
+// ParseGuardEvent parses the event.
 func ParseGuardEvent(raw string) *GuardEvent {
 	event := &GuardEvent{Raw: raw}
 	event.Type, raw, _ = util.PartitionString(raw, ' ')
@@ -567,18 +629,23 @@ func ParseGuardEvent(raw string) *GuardEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*GuardEvent) Code() EventCode { return EventCodeGuard }
 
+// NetworkStatusEvent is NS in spec.
 type NetworkStatusEvent struct {
 	Raw string
 }
 
+// ParseNetworkStatusEvent parses the event.
 func ParseNetworkStatusEvent(raw string) *NetworkStatusEvent {
 	return &NetworkStatusEvent{Raw: raw}
 }
 
+// Code implements Event.Code
 func (*NetworkStatusEvent) Code() EventCode { return EventCodeNetworkStatus }
 
+// StreamBandwidthEvent is STREAM_BW in spec.
 type StreamBandwidthEvent struct {
 	Raw          string
 	BytesRead    int64
@@ -586,6 +653,7 @@ type StreamBandwidthEvent struct {
 	Time         time.Time
 }
 
+// ParseStreamBandwidthEvent parses the event.
 func ParseStreamBandwidthEvent(raw string) *StreamBandwidthEvent {
 	event := &StreamBandwidthEvent{Raw: raw}
 	var temp string
@@ -599,8 +667,10 @@ func ParseStreamBandwidthEvent(raw string) *StreamBandwidthEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*StreamBandwidthEvent) Code() EventCode { return EventCodeStreamBandwidth }
 
+// ClientsSeenEvent is CLIENTS_SEEN in spec.
 type ClientsSeenEvent struct {
 	Raw            string
 	TimeStarted    time.Time
@@ -608,6 +678,7 @@ type ClientsSeenEvent struct {
 	IPVersions     map[string]int
 }
 
+// ParseClientsSeenEvent parses the event.
 func ParseClientsSeenEvent(raw string) *ClientsSeenEvent {
 	event := &ClientsSeenEvent{Raw: raw}
 	var temp string
@@ -637,18 +708,23 @@ func ParseClientsSeenEvent(raw string) *ClientsSeenEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*ClientsSeenEvent) Code() EventCode { return EventCodeClientsSeen }
 
+// NewConsensusEvent is NEWCONSENSUS in spec.
 type NewConsensusEvent struct {
 	Raw string
 }
 
+// ParseNewConsensusEvent parses the event.
 func ParseNewConsensusEvent(raw string) *NewConsensusEvent {
 	return &NewConsensusEvent{Raw: raw}
 }
 
+// Code implements Event.Code
 func (*NewConsensusEvent) Code() EventCode { return EventCodeNewConsensus }
 
+// BuildTimeoutSetEvent is BUILDTIMEOUT_SET in spec.
 type BuildTimeoutSetEvent struct {
 	Raw          string
 	Type         string
@@ -662,6 +738,7 @@ type BuildTimeoutSetEvent struct {
 	CloseRate    float32
 }
 
+// ParseBuildTimeoutSetEvent parses the event.
 func ParseBuildTimeoutSetEvent(raw string) *BuildTimeoutSetEvent {
 	event := &BuildTimeoutSetEvent{Raw: raw}
 	var ok bool
@@ -701,29 +778,37 @@ func ParseBuildTimeoutSetEvent(raw string) *BuildTimeoutSetEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*BuildTimeoutSetEvent) Code() EventCode { return EventCodeBuildTimeoutSet }
 
+// SignalEvent is SIGNAL in spec.
 type SignalEvent struct {
 	Raw string
 }
 
+// ParseSignalEvent parses the event.
 func ParseSignalEvent(raw string) *SignalEvent {
 	return &SignalEvent{Raw: raw}
 }
 
+// Code implements Event.Code
 func (*SignalEvent) Code() EventCode { return EventCodeSignal }
 
+// ConfChangedEvent is CONF_CHANGED in spec.
 type ConfChangedEvent struct {
 	Raw []string
 }
 
+// ParseConfChangedEvent parses the event.
 func ParseConfChangedEvent(raw []string) *ConfChangedEvent {
 	// TODO: break into KeyVal and unescape strings
 	return &ConfChangedEvent{Raw: raw}
 }
 
+// Code implements Event.Code
 func (*ConfChangedEvent) Code() EventCode { return EventCodeConfChanged }
 
+// CircuitMinorEvent is CIRC_MINOR in spec.
 type CircuitMinorEvent struct {
 	Raw         string
 	CircuitID   string
@@ -738,6 +823,7 @@ type CircuitMinorEvent struct {
 	OldHSState  string
 }
 
+// ParseCircuitMinorEvent parses the event.
 func ParseCircuitMinorEvent(raw string) *CircuitMinorEvent {
 	event := &CircuitMinorEvent{Raw: raw}
 	event.CircuitID, raw, _ = util.PartitionString(raw, ' ')
@@ -773,8 +859,10 @@ func ParseCircuitMinorEvent(raw string) *CircuitMinorEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*CircuitMinorEvent) Code() EventCode { return EventCodeCircuitMinor }
 
+// TransportLaunchedEvent is TRANSPORT_LAUNCHED in spec.
 type TransportLaunchedEvent struct {
 	Raw     string
 	Type    string
@@ -783,6 +871,7 @@ type TransportLaunchedEvent struct {
 	Port    int
 }
 
+// ParseTransportLaunchedEvent parses the event.
 func ParseTransportLaunchedEvent(raw string) *TransportLaunchedEvent {
 	event := &TransportLaunchedEvent{Raw: raw}
 	event.Type, raw, _ = util.PartitionString(raw, ' ')
@@ -794,8 +883,10 @@ func ParseTransportLaunchedEvent(raw string) *TransportLaunchedEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*TransportLaunchedEvent) Code() EventCode { return EventCodeTransportLaunched }
 
+// ConnBandwidthEvent is CONN_BW in spec.
 type ConnBandwidthEvent struct {
 	Raw          string
 	ConnID       string
@@ -804,6 +895,7 @@ type ConnBandwidthEvent struct {
 	BytesWritten int64
 }
 
+// ParseConnBandwidthEvent parses the event.
 func ParseConnBandwidthEvent(raw string) *ConnBandwidthEvent {
 	event := &ConnBandwidthEvent{Raw: raw}
 	ok := true
@@ -825,8 +917,10 @@ func ParseConnBandwidthEvent(raw string) *ConnBandwidthEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*ConnBandwidthEvent) Code() EventCode { return EventCodeConnBandwidth }
 
+// CircuitBandwidthEvent is CIRC_BW in spec.
 type CircuitBandwidthEvent struct {
 	Raw          string
 	CircuitID    string
@@ -835,6 +929,7 @@ type CircuitBandwidthEvent struct {
 	Time         time.Time
 }
 
+// ParseCircuitBandwidthEvent parses the event.
 func ParseCircuitBandwidthEvent(raw string) *CircuitBandwidthEvent {
 	event := &CircuitBandwidthEvent{Raw: raw}
 	ok := true
@@ -856,8 +951,10 @@ func ParseCircuitBandwidthEvent(raw string) *CircuitBandwidthEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*CircuitBandwidthEvent) Code() EventCode { return EventCodeCircuitBandwidth }
 
+// CellStatsEvent is CELL_STATS in spec.
 type CellStatsEvent struct {
 	Raw             string
 	CircuitID       string
@@ -873,6 +970,7 @@ type CellStatsEvent struct {
 	OutboundTime    map[string]int
 }
 
+// ParseCellStatsEvent parses the event.
 func ParseCellStatsEvent(raw string) *CellStatsEvent {
 	event := &CellStatsEvent{Raw: raw}
 	ok := true
@@ -916,8 +1014,10 @@ func ParseCellStatsEvent(raw string) *CellStatsEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*CellStatsEvent) Code() EventCode { return EventCodeCellStats }
 
+// TokenBucketEmptyEvent is TB_EMPTY in spec.
 type TokenBucketEmptyEvent struct {
 	Raw              string
 	BucketName       string
@@ -927,6 +1027,7 @@ type TokenBucketEmptyEvent struct {
 	LastRefil        time.Duration
 }
 
+// ParseTokenBucketEmptyEvent parses the event.
 func ParseTokenBucketEmptyEvent(raw string) *TokenBucketEmptyEvent {
 	event := &TokenBucketEmptyEvent{Raw: raw}
 	var ok bool
@@ -952,8 +1053,10 @@ func ParseTokenBucketEmptyEvent(raw string) *TokenBucketEmptyEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*TokenBucketEmptyEvent) Code() EventCode { return EventCodeTokenBucketEmpty }
 
+// HSDescEvent is HS_DESC in spec.
 type HSDescEvent struct {
 	Raw        string
 	Action     string
@@ -966,6 +1069,7 @@ type HSDescEvent struct {
 	HSDirIndex string
 }
 
+// ParseHSDescEvent parses the event.
 func ParseHSDescEvent(raw string) *HSDescEvent {
 	event := &HSDescEvent{Raw: raw}
 	event.Action, raw, _ = util.PartitionString(raw, ' ')
@@ -995,8 +1099,10 @@ func ParseHSDescEvent(raw string) *HSDescEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*HSDescEvent) Code() EventCode { return EventCodeHSDesc }
 
+// HSDescContentEvent is HS_DESC_CONTENT in spec.
 type HSDescContentEvent struct {
 	Raw        string
 	Address    string
@@ -1005,6 +1111,7 @@ type HSDescContentEvent struct {
 	Descriptor string
 }
 
+// ParseHSDescContentEvent parses the event.
 func ParseHSDescContentEvent(raw string) *HSDescContentEvent {
 	event := &HSDescContentEvent{Raw: raw}
 	event.Address, raw, _ = util.PartitionString(raw, ' ')
@@ -1016,14 +1123,33 @@ func ParseHSDescContentEvent(raw string) *HSDescContentEvent {
 	return event
 }
 
+// Code implements Event.Code
 func (*HSDescContentEvent) Code() EventCode { return EventCodeHSDescContent }
 
+// NetworkLivenessEvent is NETWORK_LIVENESS in spec.
 type NetworkLivenessEvent struct {
 	Raw string
 }
 
+// ParseNetworkLivenessEvent parses the event.
 func ParseNetworkLivenessEvent(raw string) *NetworkLivenessEvent {
 	return &NetworkLivenessEvent{Raw: raw}
 }
 
+// Code implements Event.Code
 func (*NetworkLivenessEvent) Code() EventCode { return EventCodeNetworkLiveness }
+
+// UnrecognizedEvent is any unrecognized event code.
+type UnrecognizedEvent struct {
+	EventCode     EventCode
+	RawSingleLine string
+	RawMultiLine  []string
+}
+
+// ParseUnrecognizedEvent creates an unrecognized event with the given values.
+func ParseUnrecognizedEvent(eventCode EventCode, rawSingleLine string, rawMultiLine []string) *UnrecognizedEvent {
+	return &UnrecognizedEvent{EventCode: eventCode, RawSingleLine: rawSingleLine, RawMultiLine: rawMultiLine}
+}
+
+// Code implements Event.Code
+func (u *UnrecognizedEvent) Code() EventCode { return u.EventCode }

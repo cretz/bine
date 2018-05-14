@@ -100,7 +100,7 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 
 func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	// Get the creator
-	var creator process.ProcessCreator
+	var creator process.Creator
 	if conf.Embedded {
 		return fmt.Errorf("Embedded Tor not yet supported")
 	} else {
@@ -108,7 +108,7 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 		if torPath == "" {
 			torPath = "tor"
 		}
-		creator = process.NewProcessCreator(torPath)
+		creator = process.NewCreator(torPath)
 	}
 	// Build the args
 	args := []string{"--DataDirectory", t.DataDir}

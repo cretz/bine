@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Response is a response to a control port command, or an asynchronous event.
+// Response is a response to a control port command or an asynchronous event.
 type Response struct {
 	// Err is the status code and string representation associated with a response. Responses that have completed
 	// successfully will also have Err set to indicate such.
@@ -33,6 +33,7 @@ func (r *Response) IsOk() bool {
 	}
 }
 
+// DataWithReply returns a combination of Data and Reply to give a full set of the lines of the response.
 func (r *Response) DataWithReply() []string {
 	ret := make([]string, len(r.Data)+1)
 	copy(ret, r.Data)

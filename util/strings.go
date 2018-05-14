@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// PartitionString returns the two parts of a string delimited by the first occurrence of ch. If ch does not exist, the
+// second string is empty and the resulting bool is false. Otherwise it is true.
 func PartitionString(str string, ch byte) (string, string, bool) {
 	index := strings.IndexByte(str, ch)
 	if index == -1 {
@@ -13,6 +15,8 @@ func PartitionString(str string, ch byte) (string, string, bool) {
 	return str[:index], str[index+1:], true
 }
 
+// PartitionStringFromEnd is same as PartitionString except it delimts by the last occurrence of ch instead of the
+// first.
 func PartitionStringFromEnd(str string, ch byte) (string, string, bool) {
 	index := strings.LastIndexByte(str, ch)
 	if index == -1 {
@@ -21,6 +25,8 @@ func PartitionStringFromEnd(str string, ch byte) (string, string, bool) {
 	return str[:index], str[index+1:], true
 }
 
+// EscapeSimpleQuotedStringIfNeeded calls EscapeSimpleQuotedString only if the string contains a space, backslash,
+// double quote, newline, or carriage return character.
 func EscapeSimpleQuotedStringIfNeeded(str string) string {
 	if strings.ContainsAny(str, " \\\"\r\n") {
 		return EscapeSimpleQuotedString(str)
@@ -28,17 +34,25 @@ func EscapeSimpleQuotedStringIfNeeded(str string) string {
 	return str
 }
 
-var SimpleQuotedStringEscapeReplacer = strings.NewReplacer(
+var simpleQuotedStringEscapeReplacer = strings.NewReplacer(
 	"\\", "\\\\",
 	"\"", "\\\"",
 	"\r", "\\r",
 	"\n", "\\n",
 )
 
+// EscapeSimpleQuotedString calls EscapeSimpleQuotedStringContents and then surrounds the entire string with double
+// quotes.
 func EscapeSimpleQuotedString(str string) string {
-	return "\"" + SimpleQuotedStringEscapeReplacer.Replace(str) + "\""
+	return "\"" + simpleQuotedStringEscapeReplacer.Replace(str) + "\""
 }
 
+// EscapeSimpleQuotedStringContents escapes backslashes, double quotes, newlines, and carriage returns in str.
+func EscapeSimpleQuotedStringContents(str string) string {
+	return simpleQuotedStringEscapeReplacer.Replace(str)
+}
+
+// UnescapeSimpleQuotedStringIfNeeded calls UnescapeSimpleQuotedString only if str is surrounded with double quotes.
 func UnescapeSimpleQuotedStringIfNeeded(str string) (string, error) {
 	if len(str) >= 2 && str[0] == '"' && str[len(str)-1] == '"' {
 		return UnescapeSimpleQuotedString(str)
@@ -46,6 +60,7 @@ func UnescapeSimpleQuotedStringIfNeeded(str string) (string, error) {
 	return str, nil
 }
 
+// UnescapeSimpleQuotedString removes surrounding double quotes and calls UnescapeSimpleQuotedStringContents.
 func UnescapeSimpleQuotedString(str string) (string, error) {
 	if len(str) < 2 || str[0] != '"' || str[len(str)-1] != '"' {
 		return "", fmt.Errorf("Missing quotes")
@@ -53,6 +68,7 @@ func UnescapeSimpleQuotedString(str string) (string, error) {
 	return UnescapeSimpleQuotedStringContents(str[1 : len(str)-1])
 }
 
+// UnescapeSimpleQuotedStringContents unescapes backslashes, double quotes, newlines, and carriage returns.
 func UnescapeSimpleQuotedStringContents(str string) (string, error) {
 	ret := ""
 	escaping := false
@@ -71,9 +87,16 @@ func UnescapeSimpleQuotedStringContents(str string) (string, error) {
 			escaping = false
 		default:
 			if escaping {
-				return "", fmt.Errorf("Unexpected escape")
+				if c == 'r' {
+					ret += "\r"
+				} else if c == 'n' {
+					ret += "\n"
+				} else {
+					return "", fmt.Errorf("Unexpected escape")
+				}
+			} else {
+				ret += string(c)
 			}
-			ret += string(c)
 		}
 	}
 	return ret, nil

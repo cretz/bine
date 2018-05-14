@@ -6,7 +6,8 @@ import (
 	"os/exec"
 )
 
-type ProcessCreator interface {
+// Creator is the interface for process creation.
+type Creator interface {
 	New(ctx context.Context, args ...string) (Process, error)
 }
 
@@ -14,12 +15,14 @@ type exeProcessCreator struct {
 	exePath string
 }
 
-func NewProcessCreator(exePath string) ProcessCreator {
+// NewCreator creates a Creator for external Tor process execution based on the given exe path.
+func NewCreator(exePath string) Creator {
 	return &exeProcessCreator{exePath}
 }
+
 func (e *exeProcessCreator) New(ctx context.Context, args ...string) (Process, error) {
-	proc := &exeProcess{Cmd: exec.CommandContext(ctx, e.exePath, args...)}
-	proc.Stdout = os.Stdout
-	proc.Stderr = os.Stderr
-	return proc, nil
+	cmd := exec.CommandContext(ctx, e.exePath, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd, nil
 }

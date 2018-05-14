@@ -8,6 +8,7 @@ import (
 	"github.com/cretz/bine/util"
 )
 
+// ControlPortFromFileContents reads a control port file that is written by Tor when ControlPortWriteToFile is set.
 func ControlPortFromFileContents(contents string) (int, error) {
 	contents = strings.TrimSpace(contents)
 	_, port, ok := util.PartitionString(contents, ':')
