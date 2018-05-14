@@ -1,13 +1,6 @@
 package controltest
 
-import (
-	"context"
-	"testing"
-	"time"
-
-	"github.com/cretz/bine/control"
-)
-
+/*
 func TestEvents(t *testing.T) {
 	SkipIfNotRunningSpecifically(t)
 	ctx, conn := NewTestContextAuthenticated(t)
@@ -44,3 +37,4 @@ MainLoop:
 		ctx.Debugf("Event %v seen? %v", event, ok)
 	}
 }
+*/

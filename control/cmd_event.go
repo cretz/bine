@@ -9,7 +9,7 @@ import (
 	"github.com/cretz/bine/util"
 )
 
-// EventCode represents an asynchronous event code (ref control spec 4.1)
+// EventCode represents an asynchronous event code (ref control spec 4.1).
 type EventCode string
 
 const (

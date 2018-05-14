@@ -5,7 +5,8 @@ import (
 )
 
 type Process interface {
-	Run() error
+	Start() error
+	Wait() error
 }
 
 type exeProcess struct {

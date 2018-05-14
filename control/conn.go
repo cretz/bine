@@ -68,13 +68,6 @@ func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error
 }
 
 func (c *Conn) Close() error {
-	// We'll close all the chans first
-	c.asyncChansLock.Lock()
-	for _, ch := range c.asyncChans {
-		close(ch)
-	}
-	c.asyncChans = nil
-	c.asyncChansLock.Unlock()
 	// Ignore the response and ignore the error
 	c.Quit()
 	return c.conn.Close()

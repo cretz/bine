@@ -6,6 +6,7 @@ import (
 	"github.com/cretz/bine/util"
 )
 
+// ProtocolInfo is the protocol info result of Conn.ProtocolInfo.
 type ProtocolInfo struct {
 	AuthMethods []string
 	CookieFile  string
@@ -13,6 +14,7 @@ type ProtocolInfo struct {
 	RawResponse *Response
 }
 
+// HasAuthMethod checks if ProtocolInfo contains the requested auth method.
 func (p *ProtocolInfo) HasAuthMethod(authMethod string) bool {
 	for _, m := range p.AuthMethods {
 		if m == authMethod {
@@ -22,6 +24,7 @@ func (p *ProtocolInfo) HasAuthMethod(authMethod string) bool {
 	return false
 }
 
+// ProtocolInfo invokes PROTOCOLINFO on first invocation and returns a cached result on all others.
 func (c *Conn) ProtocolInfo() (*ProtocolInfo, error) {
 	var err error
 	if c.protocolInfo == nil {

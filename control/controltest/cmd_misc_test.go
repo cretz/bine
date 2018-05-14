@@ -3,7 +3,7 @@ package controltest
 import "testing"
 
 func TestSignal(t *testing.T) {
-	ctx, conn := NewTestContextAuthenticated(t)
-	defer ctx.CloseConnected(conn)
-	ctx.Require.NoError(conn.Signal("HEARTBEAT"))
+	ctx := NewTestContext(t, nil)
+	defer ctx.Close()
+	ctx.Require.NoError(ctx.Control.Signal("HEARTBEAT"))
 }
