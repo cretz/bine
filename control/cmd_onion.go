@@ -124,9 +124,9 @@ type AddOnionRequest struct {
 	Flags []string
 	// MaxStreams is ADD_ONION MaxStreams.
 	MaxStreams int
-	// Ports are ADD_ONION Port values. Key is virtual port, value is target
+	// Ports are ADD_ONION Port values. Key is virtual port, Val is target
 	// port (or can be empty to use virtual port).
-	Ports map[string]string
+	Ports []*KeyVal
 	// ClientAuths are ADD_ONION ClientAuth values. If value is empty string,
 	// Tor will generate the password.
 	ClientAuths map[string]string
@@ -157,10 +157,10 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 	if req.MaxStreams > 0 {
 		cmd += " MaxStreams=" + strconv.Itoa(req.MaxStreams)
 	}
-	for virt, target := range req.Ports {
-		cmd += " Port=" + virt
-		if target != "" {
-			cmd += "," + target
+	for _, port := range req.Ports {
+		cmd += " Port=" + port.Key
+		if port.Val != "" {
+			cmd += "," + port.Val
 		}
 	}
 	for name, blob := range req.ClientAuths {
