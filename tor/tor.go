@@ -243,9 +243,46 @@ func (t *Tor) connectController(ctx context.Context, conf *StartConf) error {
 	return nil
 }
 
+// EnableNetwork sets DisableNetwork to 0 and optionally waits for bootstrap to
+// complete. The context can be nil. If DisableNetwork isnt 1, this does
+// nothing.
+func (t *Tor) EnableNetwork(ctx context.Context, wait bool) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	// Only enable if DisableNetwork is 1
+	if vals, err := t.Control.GetConf("DisableNetwork"); err != nil {
+		return err
+	} else if len(vals) == 0 || vals[0].Key != "DisableNetwork" || vals[0].Val != "1" {
+		return nil
+	}
+	// Enable the network
+	if err := t.Control.SetConf(control.KeyVals("DisableNetwork", "0")...); err != nil {
+		return nil
+	}
+	// If not waiting, leave
+	if !wait {
+		return nil
+	}
+	// Wait for progress to hit 100
+	_, err := t.Control.EventWait(ctx, []control.EventCode{control.EventCodeStatusClient},
+		func(evt control.Event) (bool, error) {
+			if status, _ := evt.(*control.StatusEvent); status != nil && status.Action == "BOOTSTRAP" {
+				if status.Severity == "NOTICE" && status.Arguments["PROGRESS"] == "100" {
+					return true, nil
+				} else if status.Severity != "NOTICE" {
+					return false, fmt.Errorf("Failing bootstrapping, Tor warning: %v", status.Arguments["WARNING"])
+				}
+			}
+			return false, nil
+		})
+	return err
+}
+
 // Close sends a halt to the Tor process if it can, closes the controller
 // connection, and stops the process.
 func (t *Tor) Close() error {
+	t.Debugf("Closing Tor")
 	errs := []error{}
 	// If controller is authenticated, send the quit signal to the process. Otherwise, just close the controller.
 	sentHalt := false
@@ -295,7 +332,9 @@ func (t *Tor) Close() error {
 	if len(errs) == 0 {
 		return nil
 	} else if len(errs) == 1 {
+		t.Debugf("Error while closing Tor: %v", errs[0])
 		return errs[0]
 	}
+	t.Debugf("Errors while closing Tor: %v", errs)
 	return fmt.Errorf("Got %v errors while closing - %v", len(errs), errs)
 }

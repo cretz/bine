@@ -150,7 +150,7 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 	if req.Key == nil {
 		return nil, c.protoErr("Key required")
 	}
-	cmd := "ADDONION " + string(req.Key.Type()) + ":" + req.Key.Blob()
+	cmd := "ADD_ONION " + string(req.Key.Type()) + ":" + req.Key.Blob()
 	if len(req.Flags) > 0 {
 		cmd += " Flags=" + strings.Join(req.Flags, ",")
 	}
@@ -197,5 +197,5 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 
 // DelOnion invokes DELONION.
 func (c *Conn) DelOnion(serviceID string) error {
-	return c.sendRequestIgnoreResponse("DELONION %v", serviceID)
+	return c.sendRequestIgnoreResponse("DEL_ONION %v", serviceID)
 }

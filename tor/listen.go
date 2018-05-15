@@ -1,6 +1,7 @@
 package tor
 
 import (
+	"context"
 	"crypto"
 	"crypto/rsa"
 	"fmt"
@@ -103,14 +104,22 @@ type ListenConf struct {
 	// maximum number of streams is exceeded. If true, the circuit is closed. If
 	// false, the stream is simply not connected but the circuit stays open.
 	MaxStreamsCloseCircuit bool
+
+	// NoWait if true will not wait until the onion service is built. If false,
+	// the network will be enabled if it's not and then we will wait until
+	// the onion service is built.
+	NoWait bool
 }
 
-// Listen creates an onion service and local listener. If conf is nil, the
-// default struct value is used. Note, if this errors, any listeners created
-// here are closed but if a LocalListener is provided it may remain open.
-func (t *Tor) Listen(conf *ListenConf) (*OnionService, error) {
+// Listen creates an onion service and local listener. The context can be nil.
+// If conf is nil, the default struct value is used. Note, if this errors, any
+// listeners created here are closed but if a LocalListener is provided it may remain open.
+func (t *Tor) Listen(ctx context.Context, conf *ListenConf) (*OnionService, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	// Create the service up here and make sure we close it no matter the error within
-	svc := &OnionService{Key: conf.Key, CloseLocalListenerOnClose: conf.LocalListener == nil}
+	svc := &OnionService{Tor: t, Key: conf.Key, CloseLocalListenerOnClose: conf.LocalListener == nil}
 	var err error
 
 	// Create the local listener if necessary
@@ -184,7 +193,7 @@ func (t *Tor) Listen(conf *ListenConf) (*OnionService, error) {
 		if _, ok := svc.LocalListener.(*net.UnixListener); ok {
 			localAddr = "unix:" + localAddr
 		}
-		for _, remotePort := range conf.RemotePorts {
+		for _, remotePort := range svc.RemotePorts {
 			req.Ports = append(req.Ports, &control.KeyVal{Key: strconv.Itoa(remotePort), Val: localAddr})
 		}
 	}
@@ -220,6 +229,41 @@ func (t *Tor) Listen(conf *ListenConf) (*OnionService, error) {
 		}
 	}
 
+	// Wait if necessary
+	if err == nil && !conf.NoWait {
+		t.Debugf("Enabling network before waiting for publication")
+		// First make sure network is enabled
+		if err = t.EnableNetwork(ctx, true); err == nil {
+			t.Debugf("Waiting for publication")
+			// Now we'll take a similar approach to Stem. Several UPLOADs are sent out, so we count em. If we see
+			// UPLOADED, we succeeded. If we see failed, we count those. If there are as many failures as uploads, they
+			// all failed and it's a failure. NOTE: unlike Stem's comments that say they don't, we are actually seeing
+			// the service IDs for UPLOADED so we don't keep a map.
+			uploadsAttempted := 0
+			failures := []string{}
+			_, err = t.Control.EventWait(ctx, []control.EventCode{control.EventCodeHSDesc},
+				func(evt control.Event) (bool, error) {
+					hs, _ := evt.(*control.HSDescEvent)
+					if hs != nil && hs.Address == svc.ID {
+						switch hs.Action {
+						case "UPLOAD":
+							uploadsAttempted++
+						case "FAILED":
+							failures = append(failures,
+								fmt.Sprintf("Failed uploading to dir %v - reason: %v", hs.HSDir, hs.Reason))
+							if len(failures) == uploadsAttempted {
+								return false, fmt.Errorf("Failed all uploads, reasons: %v", failures)
+							}
+						case "UPLOADED":
+							return true, nil
+						}
+					}
+					return false, nil
+				})
+		}
+	}
+
+	// Give back err and close if there is an err
 	if err != nil {
 		if closeErr := svc.Close(); closeErr != nil {
 			err = fmt.Errorf("Error on listen: %v (also got error trying to close: %v)", err, closeErr)
@@ -252,14 +296,11 @@ func (o *OnionService) String() string {
 // Close implements net.Listener.Close and deletes the onion service and closes
 // the LocalListener if CloseLocalListenerOnClose is true.
 func (o *OnionService) Close() (err error) {
+	o.Tor.Debugf("Closing onion %v", o)
 	// Delete the onion first
 	if o.ID != "" {
-		if o.Tor == nil {
-			err = fmt.Errorf("No Tor object")
-		} else {
-			err = o.Tor.Control.DelOnion(o.ID)
-			o.ID = ""
-		}
+		err = o.Tor.Control.DelOnion(o.ID)
+		o.ID = ""
 	}
 	// Now if the local one needs to be closed, do it
 	if o.CloseLocalListenerOnClose && o.LocalListener != nil {
@@ -271,6 +312,9 @@ func (o *OnionService) Close() (err error) {
 			}
 		}
 		o.LocalListener = nil
+	}
+	if err != nil {
+		o.Tor.Debugf("Failed closing onion: %v", err)
 	}
 	return
 }

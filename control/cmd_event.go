@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -106,6 +107,42 @@ func EventCodes() []EventCode {
 	return ret
 }
 
+// ErrEventWaitSynchronousResponseOccurred is returned from EventWait (see docs)
+var ErrEventWaitSynchronousResponseOccurred = errors.New("Synchronous event occurred during EventWait")
+
+// EventWait waits for the predicate to be satisified or a non-event message to
+// come through. If a non-event comes through, the error
+// ErrEventWaitSynchronousResponseOccurred is returned. If there is an error in
+// the predicate or if the context completes or there is an error internally
+// handling the event, the error is returned. Otherwise, the event that true was
+// returned from the predicate for is returned.
+func (c *Conn) EventWait(
+	ctx context.Context, events []EventCode, predicate func(Event) (bool, error),
+) (Event, error) {
+	eventCh := make(chan Event, 10)
+	defer close(eventCh)
+	if err := c.AddEventListener(eventCh, events...); err != nil {
+		return nil, err
+	}
+	defer c.RemoveEventListener(eventCh, events...)
+	eventCtx, eventCancel := context.WithCancel(ctx)
+	defer eventCancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- c.HandleEvents(eventCtx) }()
+	for {
+		select {
+		case err := <-errCh:
+			return nil, err
+		case event := <-eventCh:
+			if ok, err := predicate(event); err != nil {
+				return nil, err
+			} else if ok {
+				return event, nil
+			}
+		}
+	}
+}
+
 // HandleEvents loops until the context is closed dispatching async events. Can
 // dispatch events even after context is done and of course during synchronous
 // request. This will always end with an error, either from ctx.Done() or from
@@ -159,18 +196,13 @@ func (c *Conn) HandleNextEvent() error {
 // this is essentially a no-op. The EventCodeUnrecognized event code can be used
 // to listen for unrecognized events.
 func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
-	// TODO: do we want to set the local map first? Or do we want to lock on the net request too?
-	c.eventListenersLock.Lock()
-	for _, event := range events {
-		// Must completely replace the array, never mutate it
-		prevArr := c.eventListeners[event]
-		newArr := make([]chan<- Event, len(prevArr)+1)
-		copy(newArr, prevArr)
-		newArr[len(newArr)-1] = ch
-		c.eventListeners[event] = newArr
+	c.addEventListenerToMap(ch, events...)
+	// If there is an error updating the events, remove what we just added
+	err := c.sendSetEvents()
+	if err != nil {
+		c.removeEventListenerFromMap(ch, events...)
 	}
-	c.eventListenersLock.Unlock()
-	return c.sendSetEvents()
+	return err
 }
 
 // RemoveEventListener removes the given channel from being sent to by the given
@@ -179,7 +211,26 @@ func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
 // no longer be listened to. If no events are provided, this is essentially a
 // no-op.
 func (c *Conn) RemoveEventListener(ch chan<- Event, events ...EventCode) error {
+
+	return c.sendSetEvents()
+}
+
+func (c *Conn) addEventListenerToMap(ch chan<- Event, events ...EventCode) {
 	c.eventListenersLock.Lock()
+	defer c.eventListenersLock.Unlock()
+	for _, event := range events {
+		// Must completely replace the array, never mutate it
+		prevArr := c.eventListeners[event]
+		newArr := make([]chan<- Event, len(prevArr)+1)
+		copy(newArr, prevArr)
+		newArr[len(newArr)-1] = ch
+		c.eventListeners[event] = newArr
+	}
+}
+
+func (c *Conn) removeEventListenerFromMap(ch chan<- Event, events ...EventCode) {
+	c.eventListenersLock.Lock()
+	defer c.eventListenersLock.Unlock()
 	for _, event := range events {
 		arr := c.eventListeners[event]
 		index := -1
@@ -201,8 +252,6 @@ func (c *Conn) RemoveEventListener(ch chan<- Event, events ...EventCode) error {
 			}
 		}
 	}
-	c.eventListenersLock.Unlock()
-	return c.sendSetEvents()
 }
 
 func (c *Conn) sendSetEvents() error {
