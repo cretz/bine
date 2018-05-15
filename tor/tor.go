@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/textproto"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -98,6 +99,9 @@ type StartConf struct {
 	// DebugWriter is the writer to use for debug logs, or nil for no debug
 	// logs.
 	DebugWriter io.Writer
+
+	// NoHush if true does not set --hush. By default --hush is set.
+	NoHush bool
 }
 
 // Start a Tor instance and connect to it. If ctx is nil, context.Background()
@@ -110,13 +114,16 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 		conf = &StartConf{}
 	}
 	tor := &Tor{DataDir: conf.DataDir, DebugWriter: conf.DebugWriter, StopProcessOnClose: true}
-	// Create the data dir
+	// Create the data dir and make it absolute
 	if tor.DataDir == "" {
 		tempBase := conf.TempDataDirBase
 		if tempBase == "" {
 			tempBase = "."
 		}
 		var err error
+		if tempBase, err = filepath.Abs(tempBase); err != nil {
+			return nil, err
+		}
 		if tor.DataDir, err = ioutil.TempDir(tempBase, "data-dir-"); err != nil {
 			return nil, fmt.Errorf("Unable to create temp data dir: %v", err)
 		}
@@ -164,6 +171,9 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	}
 	if !conf.EnableNetwork {
 		args = append(args, "--DisableNetwork", "1")
+	}
+	if !conf.NoHush {
+		args = append(args, "--hush")
 	}
 	// If there is no Torrc file, create a blank temp one
 	torrcFileName := conf.TorrcFile

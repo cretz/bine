@@ -46,6 +46,9 @@ func (c *Conn) GetInfo(keys ...string) ([]*KeyVal, error) {
 	for _, val := range resp.Data {
 		infoVal := &KeyVal{}
 		infoVal.Key, infoVal.Val, _ = util.PartitionString(val, '=')
+		if infoVal.Val, err = util.UnescapeSimpleQuotedStringIfNeeded(infoVal.Val); err != nil {
+			return nil, err
+		}
 		ret = append(ret, infoVal)
 	}
 	return ret, nil
