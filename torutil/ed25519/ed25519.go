@@ -12,7 +12,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/cretz/bine/torutil/ed25519/edwards25519"
+	"github.com/cretz/bine/torutil/ed25519/internal/edwards25519"
 	"golang.org/x/crypto/ed25519"
 )
 
