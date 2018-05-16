@@ -120,7 +120,6 @@ func (c *Conn) EventWait(
 	ctx context.Context, events []EventCode, predicate func(Event) (bool, error),
 ) (Event, error) {
 	eventCh := make(chan Event, 10)
-	defer close(eventCh)
 	if err := c.AddEventListener(eventCh, events...); err != nil {
 		return nil, err
 	}
@@ -131,6 +130,8 @@ func (c *Conn) EventWait(
 	go func() { errCh <- c.HandleEvents(eventCtx) }()
 	for {
 		select {
+		case <-eventCtx.Done():
+			return nil, eventCtx.Err()
 		case err := <-errCh:
 			return nil, err
 		case event := <-eventCh:

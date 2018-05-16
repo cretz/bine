@@ -102,6 +102,11 @@ type StartConf struct {
 
 	// NoHush if true does not set --hush. By default --hush is set.
 	NoHush bool
+
+	// NoAutoSocksPort if true does not set "--SocksPort auto" as is done by
+	// default. This means the caller could set their own or just let it
+	// default to 9050.
+	NoAutoSocksPort bool
 }
 
 // Start a Tor instance and connect to it. If ctx is nil, context.Background()
@@ -174,6 +179,9 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	}
 	if !conf.NoHush {
 		args = append(args, "--hush")
+	}
+	if !conf.NoAutoSocksPort {
+		args = append(args, "--SocksPort", "auto")
 	}
 	// If there is no Torrc file, create a blank temp one
 	torrcFileName := conf.TorrcFile

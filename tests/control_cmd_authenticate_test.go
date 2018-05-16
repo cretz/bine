@@ -1,4 +1,4 @@
-package controltest
+package tests
 
 import (
 	"testing"
