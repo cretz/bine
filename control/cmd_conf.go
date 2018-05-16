@@ -3,7 +3,7 @@ package control
 import (
 	"strings"
 
-	"github.com/cretz/bine/util"
+	"github.com/cretz/bine/torutil"
 )
 
 // SetConf invokes SETCONF.
@@ -20,7 +20,7 @@ func (c *Conn) sendSetConf(cmd string, entries []*KeyVal) error {
 	for _, entry := range entries {
 		cmd += " " + entry.Key
 		if entry.ValSet() {
-			cmd += "=" + util.EscapeSimpleQuotedStringIfNeeded(entry.Val)
+			cmd += "=" + torutil.EscapeSimpleQuotedStringIfNeeded(entry.Val)
 		}
 	}
 	return c.sendRequestIgnoreResponse(cmd)
@@ -35,10 +35,10 @@ func (c *Conn) GetConf(keys ...string) ([]*KeyVal, error) {
 	data := resp.DataWithReply()
 	ret := make([]*KeyVal, 0, len(data))
 	for _, data := range data {
-		key, val, ok := util.PartitionString(data, '=')
+		key, val, ok := torutil.PartitionString(data, '=')
 		entry := &KeyVal{Key: key}
 		if ok {
-			if entry.Val, err = util.UnescapeSimpleQuotedStringIfNeeded(val); err != nil {
+			if entry.Val, err = torutil.UnescapeSimpleQuotedStringIfNeeded(val); err != nil {
 				return nil, err
 			}
 			if len(entry.Val) == 0 {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cretz/bine/util"
+	"github.com/cretz/bine/torutil"
 )
 
 // EventCode represents an asynchronous event code (ref control spec 4.1).
@@ -120,6 +120,7 @@ func (c *Conn) EventWait(
 	ctx context.Context, events []EventCode, predicate func(Event) (bool, error),
 ) (Event, error) {
 	eventCh := make(chan Event, 10)
+	defer close(eventCh)
 	if err := c.AddEventListener(eventCh, events...); err != nil {
 		return nil, err
 	}
@@ -212,7 +213,7 @@ func (c *Conn) AddEventListener(ch chan<- Event, events ...EventCode) error {
 // no longer be listened to. If no events are provided, this is essentially a
 // no-op.
 func (c *Conn) RemoveEventListener(ch chan<- Event, events ...EventCode) error {
-
+	c.removeEventListenerFromMap(ch, events...)
 	return c.sendSetEvents()
 }
 
@@ -280,7 +281,7 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 		code, dataArray = resp.Data[0], resp.Data[1:]
 	} else {
 		// Otherwise, the reply line has the data
-		code, data, _ = util.PartitionString(resp.Reply, ' ')
+		code, data, _ = torutil.PartitionString(resp.Reply, ' ')
 	}
 	// Only relay if there are chans
 	eventCode := EventCode(code)
@@ -413,14 +414,14 @@ type CircuitEvent struct {
 // ParseCircuitEvent parses the event.
 func ParseCircuitEvent(raw string) *CircuitEvent {
 	event := &CircuitEvent{Raw: raw}
-	event.CircuitID, raw, _ = util.PartitionString(raw, ' ')
+	event.CircuitID, raw, _ = torutil.PartitionString(raw, ' ')
 	var ok bool
-	event.Status, raw, ok = util.PartitionString(raw, ' ')
+	event.Status, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	first := true
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "BUILD_FLAGS":
 			event.BuildFlags = strings.Split(val, ",")
@@ -472,19 +473,19 @@ type StreamEvent struct {
 // ParseStreamEvent parses the event.
 func ParseStreamEvent(raw string) *StreamEvent {
 	event := &StreamEvent{Raw: raw}
-	event.StreamID, raw, _ = util.PartitionString(raw, ' ')
-	event.Status, raw, _ = util.PartitionString(raw, ' ')
-	event.CircuitID, raw, _ = util.PartitionString(raw, ' ')
+	event.StreamID, raw, _ = torutil.PartitionString(raw, ' ')
+	event.Status, raw, _ = torutil.PartitionString(raw, ' ')
+	event.CircuitID, raw, _ = torutil.PartitionString(raw, ' ')
 	var ok bool
-	event.TargetAddress, raw, ok = util.PartitionString(raw, ' ')
-	if target, port, hasPort := util.PartitionStringFromEnd(event.TargetAddress, ':'); hasPort {
+	event.TargetAddress, raw, ok = torutil.PartitionString(raw, ' ')
+	if target, port, hasPort := torutil.PartitionStringFromEnd(event.TargetAddress, ':'); hasPort {
 		event.TargetAddress = target
 		event.TargetPort, _ = strconv.Atoi(port)
 	}
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "REASON":
 			event.Reason = val
@@ -494,7 +495,7 @@ func ParseStreamEvent(raw string) *StreamEvent {
 			event.Source = val
 		case "SOURCE_ADDR":
 			event.SourceAddress = val
-			if source, port, hasPort := util.PartitionStringFromEnd(event.SourceAddress, ':'); hasPort {
+			if source, port, hasPort := torutil.PartitionStringFromEnd(event.SourceAddress, ':'); hasPort {
 				event.SourceAddress = source
 				event.SourcePort, _ = strconv.Atoi(port)
 			}
@@ -521,13 +522,13 @@ type ORConnEvent struct {
 // ParseORConnEvent parses the event.
 func ParseORConnEvent(raw string) *ORConnEvent {
 	event := &ORConnEvent{Raw: raw}
-	event.Target, raw, _ = util.PartitionString(raw, ' ')
+	event.Target, raw, _ = torutil.PartitionString(raw, ' ')
 	var ok bool
-	event.Status, raw, ok = util.PartitionString(raw, ' ')
+	event.Status, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "REASON":
 			event.Reason = val
@@ -554,9 +555,9 @@ type BandwidthEvent struct {
 func ParseBandwidthEvent(raw string) *BandwidthEvent {
 	event := &BandwidthEvent{Raw: raw}
 	var temp string
-	temp, raw, _ = util.PartitionString(raw, ' ')
+	temp, raw, _ = torutil.PartitionString(raw, ' ')
 	event.BytesRead, _ = strconv.ParseInt(temp, 10, 64)
-	temp, raw, _ = util.PartitionString(raw, ' ')
+	temp, raw, _ = torutil.PartitionString(raw, ' ')
 	event.BytesWritten, _ = strconv.ParseInt(temp, 10, 64)
 	return event
 }
@@ -607,23 +608,23 @@ type AddrMapEvent struct {
 // ParseAddrMapEvent parses the event.
 func ParseAddrMapEvent(raw string) *AddrMapEvent {
 	event := &AddrMapEvent{Raw: raw}
-	event.Address, raw, _ = util.PartitionString(raw, ' ')
-	event.NewAddress, raw, _ = util.PartitionString(raw, ' ')
+	event.Address, raw, _ = torutil.PartitionString(raw, ' ')
+	event.NewAddress, raw, _ = torutil.PartitionString(raw, ' ')
 	var ok bool
 	// Skip local expiration, use UTC one later
-	_, raw, ok = util.PartitionString(raw, ' ')
+	_, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "error":
 			event.ErrorCode = val
 		case "EXPIRES":
-			val, _ = util.UnescapeSimpleQuotedString(val)
+			val, _ = torutil.UnescapeSimpleQuotedString(val)
 			event.Expires = parseISOTime(val)
 		case "CACHED":
-			event.Cached, _ = util.UnescapeSimpleQuotedStringIfNeeded(val)
+			event.Cached, _ = torutil.UnescapeSimpleQuotedStringIfNeeded(val)
 		}
 	}
 	return event
@@ -657,14 +658,14 @@ type StatusEvent struct {
 // ParseStatusEvent parses the event.
 func ParseStatusEvent(typ EventCode, raw string) *StatusEvent {
 	event := &StatusEvent{Raw: raw, Type: typ, Arguments: map[string]string{}}
-	event.Severity, raw, _ = util.PartitionString(raw, ' ')
+	event.Severity, raw, _ = torutil.PartitionString(raw, ' ')
 	var ok bool
-	event.Action, raw, ok = util.PartitionString(raw, ' ')
+	event.Action, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
-		event.Arguments[key], _ = util.UnescapeSimpleQuotedStringIfNeeded(val)
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
+		event.Arguments[key], _ = torutil.UnescapeSimpleQuotedStringIfNeeded(val)
 	}
 	return event
 }
@@ -683,9 +684,9 @@ type GuardEvent struct {
 // ParseGuardEvent parses the event.
 func ParseGuardEvent(raw string) *GuardEvent {
 	event := &GuardEvent{Raw: raw}
-	event.Type, raw, _ = util.PartitionString(raw, ' ')
-	event.Name, raw, _ = util.PartitionString(raw, ' ')
-	event.Status, raw, _ = util.PartitionString(raw, ' ')
+	event.Type, raw, _ = torutil.PartitionString(raw, ' ')
+	event.Name, raw, _ = torutil.PartitionString(raw, ' ')
+	event.Status, raw, _ = torutil.PartitionString(raw, ' ')
 	return event
 }
 
@@ -717,12 +718,12 @@ type StreamBandwidthEvent struct {
 func ParseStreamBandwidthEvent(raw string) *StreamBandwidthEvent {
 	event := &StreamBandwidthEvent{Raw: raw}
 	var temp string
-	temp, raw, _ = util.PartitionString(raw, ' ')
+	temp, raw, _ = torutil.PartitionString(raw, ' ')
 	event.BytesRead, _ = strconv.ParseInt(temp, 10, 64)
-	temp, raw, _ = util.PartitionString(raw, ' ')
+	temp, raw, _ = torutil.PartitionString(raw, ' ')
 	event.BytesWritten, _ = strconv.ParseInt(temp, 10, 64)
-	temp, raw, _ = util.PartitionString(raw, ' ')
-	temp, _ = util.UnescapeSimpleQuotedString(temp)
+	temp, raw, _ = torutil.PartitionString(raw, ' ')
+	temp, _ = torutil.UnescapeSimpleQuotedString(temp)
 	event.Time = parseISOTime2Frac(temp)
 	return event
 }
@@ -743,21 +744,21 @@ func ParseClientsSeenEvent(raw string) *ClientsSeenEvent {
 	event := &ClientsSeenEvent{Raw: raw}
 	var temp string
 	var ok bool
-	temp, raw, ok = util.PartitionString(raw, ' ')
-	temp, _ = util.UnescapeSimpleQuotedString(temp)
+	temp, raw, ok = torutil.PartitionString(raw, ' ')
+	temp, _ = torutil.UnescapeSimpleQuotedString(temp)
 	event.TimeStarted = parseISOTime(temp)
 	strToMap := func(str string) map[string]int {
 		ret := map[string]int{}
 		for _, keyVal := range strings.Split(str, ",") {
-			key, val, _ := util.PartitionString(keyVal, '=')
+			key, val, _ := torutil.PartitionString(keyVal, '=')
 			ret[key], _ = strconv.Atoi(val)
 		}
 		return ret
 	}
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "CountrySummary":
 			event.CountrySummary = strToMap(val)
@@ -802,16 +803,16 @@ type BuildTimeoutSetEvent struct {
 func ParseBuildTimeoutSetEvent(raw string) *BuildTimeoutSetEvent {
 	event := &BuildTimeoutSetEvent{Raw: raw}
 	var ok bool
-	event.Type, raw, ok = util.PartitionString(raw, ' ')
-	_, raw, ok = util.PartitionString(raw, ' ')
+	event.Type, raw, ok = torutil.PartitionString(raw, ' ')
+	_, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	parseFloat := func(val string) float32 {
 		f, _ := strconv.ParseFloat(val, 32)
 		return float32(f)
 	}
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "TOTAL_TIMES":
 			event.TotalTimes, _ = strconv.Atoi(val)
@@ -886,14 +887,14 @@ type CircuitMinorEvent struct {
 // ParseCircuitMinorEvent parses the event.
 func ParseCircuitMinorEvent(raw string) *CircuitMinorEvent {
 	event := &CircuitMinorEvent{Raw: raw}
-	event.CircuitID, raw, _ = util.PartitionString(raw, ' ')
+	event.CircuitID, raw, _ = torutil.PartitionString(raw, ' ')
 	var ok bool
-	event.Event, raw, ok = util.PartitionString(raw, ' ')
+	event.Event, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	first := true
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "BUILD_FLAGS":
 			event.BuildFlags = strings.Split(val, ",")
@@ -934,11 +935,11 @@ type TransportLaunchedEvent struct {
 // ParseTransportLaunchedEvent parses the event.
 func ParseTransportLaunchedEvent(raw string) *TransportLaunchedEvent {
 	event := &TransportLaunchedEvent{Raw: raw}
-	event.Type, raw, _ = util.PartitionString(raw, ' ')
-	event.Name, raw, _ = util.PartitionString(raw, ' ')
-	event.Address, raw, _ = util.PartitionString(raw, ' ')
+	event.Type, raw, _ = torutil.PartitionString(raw, ' ')
+	event.Name, raw, _ = torutil.PartitionString(raw, ' ')
+	event.Address, raw, _ = torutil.PartitionString(raw, ' ')
 	var temp string
-	temp, raw, _ = util.PartitionString(raw, ' ')
+	temp, raw, _ = torutil.PartitionString(raw, ' ')
 	event.Port, _ = strconv.Atoi(temp)
 	return event
 }
@@ -961,8 +962,8 @@ func ParseConnBandwidthEvent(raw string) *ConnBandwidthEvent {
 	ok := true
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "ID":
 			event.ConnID = val
@@ -995,8 +996,8 @@ func ParseCircuitBandwidthEvent(raw string) *CircuitBandwidthEvent {
 	ok := true
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "ID":
 			event.CircuitID = val
@@ -1038,14 +1039,14 @@ func ParseCellStatsEvent(raw string) *CellStatsEvent {
 	toIntMap := func(val string) map[string]int {
 		ret := map[string]int{}
 		for _, v := range strings.Split(val, ",") {
-			key, val, _ := util.PartitionString(v, ':')
+			key, val, _ := torutil.PartitionString(v, ':')
 			ret[key], _ = strconv.Atoi(val)
 		}
 		return ret
 	}
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "ID":
 			event.CircuitID = val
@@ -1091,11 +1092,11 @@ type TokenBucketEmptyEvent struct {
 func ParseTokenBucketEmptyEvent(raw string) *TokenBucketEmptyEvent {
 	event := &TokenBucketEmptyEvent{Raw: raw}
 	var ok bool
-	event.BucketName, raw, ok = util.PartitionString(raw, ' ')
+	event.BucketName, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, _ := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, _ := torutil.PartitionString(attr, '=')
 		switch key {
 		case "ID":
 			event.ConnID = val
@@ -1132,16 +1133,16 @@ type HSDescEvent struct {
 // ParseHSDescEvent parses the event.
 func ParseHSDescEvent(raw string) *HSDescEvent {
 	event := &HSDescEvent{Raw: raw}
-	event.Action, raw, _ = util.PartitionString(raw, ' ')
-	event.Address, raw, _ = util.PartitionString(raw, ' ')
-	event.AuthType, raw, _ = util.PartitionString(raw, ' ')
+	event.Action, raw, _ = torutil.PartitionString(raw, ' ')
+	event.Address, raw, _ = torutil.PartitionString(raw, ' ')
+	event.AuthType, raw, _ = torutil.PartitionString(raw, ' ')
 	var ok bool
-	event.HSDir, raw, ok = util.PartitionString(raw, ' ')
+	event.HSDir, raw, ok = torutil.PartitionString(raw, ' ')
 	var attr string
 	first := true
 	for ok {
-		attr, raw, ok = util.PartitionString(raw, ' ')
-		key, val, valOk := util.PartitionString(attr, '=')
+		attr, raw, ok = torutil.PartitionString(raw, ' ')
+		key, val, valOk := torutil.PartitionString(attr, '=')
 		switch key {
 		case "REASON":
 			event.Reason = val
@@ -1174,8 +1175,8 @@ type HSDescContentEvent struct {
 // ParseHSDescContentEvent parses the event.
 func ParseHSDescContentEvent(raw string) *HSDescContentEvent {
 	event := &HSDescContentEvent{Raw: raw}
-	event.Address, raw, _ = util.PartitionString(raw, ' ')
-	event.DescID, raw, _ = util.PartitionString(raw, ' ')
+	event.Address, raw, _ = torutil.PartitionString(raw, ' ')
+	event.DescID, raw, _ = torutil.PartitionString(raw, ' ')
 	newlineIndex := strings.Index(raw, "\r\n")
 	if newlineIndex != -1 {
 		event.HSDir, event.Descriptor = raw[:newlineIndex], raw[newlineIndex+2:]

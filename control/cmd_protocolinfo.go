@@ -3,7 +3,7 @@ package control
 import (
 	"strings"
 
-	"github.com/cretz/bine/util"
+	"github.com/cretz/bine/torutil"
 )
 
 // ProtocolInfo is the protocol info result of Conn.ProtocolInfo.
@@ -42,7 +42,7 @@ func (c *Conn) sendProtocolInfo() (*ProtocolInfo, error) {
 	// Check data vals
 	ret := &ProtocolInfo{RawResponse: resp}
 	for _, piece := range resp.Data {
-		key, val, ok := util.PartitionString(piece, ' ')
+		key, val, ok := torutil.PartitionString(piece, ' ')
 		if !ok {
 			continue
 		}
@@ -52,7 +52,7 @@ func (c *Conn) sendProtocolInfo() (*ProtocolInfo, error) {
 				return nil, c.protoErr("Invalid PIVERSION: %v", val)
 			}
 		case "AUTH":
-			methods, cookieFile, _ := util.PartitionString(val, ' ')
+			methods, cookieFile, _ := torutil.PartitionString(val, ' ')
 			if !strings.HasPrefix(methods, "METHODS=") {
 				continue
 			}
@@ -60,15 +60,15 @@ func (c *Conn) sendProtocolInfo() (*ProtocolInfo, error) {
 				if !strings.HasPrefix(cookieFile, "COOKIEFILE=") {
 					continue
 				}
-				if ret.CookieFile, err = util.UnescapeSimpleQuotedString(cookieFile[11:]); err != nil {
+				if ret.CookieFile, err = torutil.UnescapeSimpleQuotedString(cookieFile[11:]); err != nil {
 					continue
 				}
 			}
 			ret.AuthMethods = strings.Split(methods[8:], ",")
 		case "VERSION":
-			torVersion, _, _ := util.PartitionString(val, ' ')
+			torVersion, _, _ := torutil.PartitionString(val, ' ')
 			if strings.HasPrefix(torVersion, "Tor=") {
-				ret.TorVersion, err = util.UnescapeSimpleQuotedString(torVersion[4:])
+				ret.TorVersion, err = torutil.UnescapeSimpleQuotedString(torVersion[4:])
 			}
 		}
 	}

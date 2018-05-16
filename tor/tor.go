@@ -288,7 +288,7 @@ func (t *Tor) EnableNetwork(ctx context.Context, wait bool) error {
 			if status, _ := evt.(*control.StatusEvent); status != nil && status.Action == "BOOTSTRAP" {
 				if status.Severity == "NOTICE" && status.Arguments["PROGRESS"] == "100" {
 					return true, nil
-				} else if status.Severity != "NOTICE" {
+				} else if status.Severity == "ERR" {
 					return false, fmt.Errorf("Failing bootstrapping, Tor warning: %v", status.Arguments["WARNING"])
 				}
 			}

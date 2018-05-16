@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cretz/bine/util"
-	"golang.org/x/crypto/ed25519"
+	"github.com/cretz/bine/torutil"
+	"github.com/cretz/bine/torutil/ed25519"
 )
 
 // KeyType is a key type for Key in AddOnion.
@@ -47,7 +47,7 @@ type Key interface {
 
 // KeyFromString creates a Key for AddOnion based on a response string.
 func KeyFromString(str string) (Key, error) {
-	typ, blob, _ := util.PartitionString(str, ':')
+	typ, blob, _ := torutil.PartitionString(str, ':')
 	switch KeyType(typ) {
 	case KeyTypeNew:
 		return GenKeyFromBlob(blob), nil
@@ -176,7 +176,7 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 	}
 	ret := &AddOnionResponse{RawResponse: resp}
 	for _, data := range resp.Data {
-		key, val, _ := util.PartitionString(data, '=')
+		key, val, _ := torutil.PartitionString(data, '=')
 		switch key {
 		case "ServiceID":
 			ret.ServiceID = val
@@ -185,7 +185,7 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 				return nil, err
 			}
 		case "ClientAuth":
-			name, pass, _ := util.PartitionString(val, ':')
+			name, pass, _ := torutil.PartitionString(val, ':')
 			if ret.ClientAuths == nil {
 				ret.ClientAuths = map[string]string{}
 			}

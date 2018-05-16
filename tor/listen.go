@@ -8,9 +8,9 @@ import (
 	"net"
 	"strconv"
 
-	"golang.org/x/crypto/ed25519"
-
 	"github.com/cretz/bine/control"
+	"github.com/cretz/bine/torutil/ed25519"
+	othered25519 "golang.org/x/crypto/ed25519"
 )
 
 // OnionService implements net.Listener and net.Addr for an onion service.
@@ -21,7 +21,7 @@ type OnionService struct {
 	// Key is the private key for this service. It is either the set key, the
 	// generated key, or nil if asked to discard the key. If present, it is
 	// *crypto/rsa.PrivateKey (1024 bit) when Version3 is false or
-	// golang.org/x/crypto/ed25519.PrivateKey when Version3 is true.
+	// github.com/cretz/bine/torutil/ed25519.PrivateKey when Version3 is true.
 	Key crypto.PrivateKey
 
 	// Version3 says whether or not this service is a V3 service.
@@ -66,6 +66,7 @@ type ListenConf struct {
 	// Key is the private key to use. If not present, a key is generated based
 	// on whether Version3 is true or false. If present, it must be a
 	// *crypto/rsa.PrivateKey (1024 bit), a
+	// github.com/cretz/bine/torutil/ed25519.PrivateKey, a
 	// golang.org/x/crypto/ed25519.PrivateKey, or a
 	// github.com/cretz/bine/control.Key.
 	Key crypto.PrivateKey
@@ -119,7 +120,7 @@ func (t *Tor) Listen(ctx context.Context, conf *ListenConf) (*OnionService, erro
 		ctx = context.Background()
 	}
 	// Create the service up here and make sure we close it no matter the error within
-	svc := &OnionService{Tor: t, Key: conf.Key, CloseLocalListenerOnClose: conf.LocalListener == nil}
+	svc := &OnionService{Tor: t, CloseLocalListenerOnClose: conf.LocalListener == nil}
 	var err error
 
 	// Create the local listener if necessary
@@ -159,16 +160,38 @@ func (t *Tor) Listen(ctx context.Context, conf *ListenConf) (*OnionService, erro
 		} else {
 			req.Key = control.GenKey(control.KeyAlgoRSA1024)
 		}
+	case control.GenKey:
+		svc.Version3 = conf.Version3
+		req.Key = key
 	case *rsa.PrivateKey:
+		svc.Key = key
 		svc.Version3 = false
 		if key.N == nil || key.N.BitLen() != 1024 {
 			err = fmt.Errorf("RSA key must be 1024 bits")
 		} else {
 			req.Key = &control.RSAKey{PrivateKey: key}
 		}
+	case *control.RSAKey:
+		svc.Key = key.PrivateKey
+		svc.Version3 = false
+		if key.N == nil || key.N.BitLen() != 1024 {
+			err = fmt.Errorf("RSA key must be 1024 bits")
+		} else {
+			req.Key = key
+		}
 	case ed25519.PrivateKey:
+		svc.Key = key
 		svc.Version3 = true
 		req.Key = control.ED25519Key(key)
+	case othered25519.PrivateKey:
+		properKey := ed25519.FromCryptoPrivateKey(key)
+		svc.Key = properKey
+		svc.Version3 = true
+		req.Key = control.ED25519Key(properKey)
+	case control.ED25519Key:
+		svc.Key = ed25519.PrivateKey(key)
+		svc.Version3 = true
+		req.Key = key
 	default:
 		err = fmt.Errorf("Unrecognized key type: %T", key)
 	}

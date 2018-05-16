@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cretz/bine/util"
+	"github.com/cretz/bine/torutil"
 )
 
 // Process is the interface implemented by Tor processes.
@@ -54,7 +54,7 @@ func (e *exeProcessCreator) New(ctx context.Context, args ...string) (Process, e
 // when ControlPortWriteToFile is set.
 func ControlPortFromFileContents(contents string) (int, error) {
 	contents = strings.TrimSpace(contents)
-	_, port, ok := util.PartitionString(contents, ':')
+	_, port, ok := torutil.PartitionString(contents, ':')
 	if !ok || !strings.HasPrefix(contents, "PORT=") {
 		return 0, fmt.Errorf("Invalid port format: %v", contents)
 	}

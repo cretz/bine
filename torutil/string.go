@@ -1,4 +1,4 @@
-package util
+package torutil
 
 import (
 	"fmt"

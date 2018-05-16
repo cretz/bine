@@ -3,7 +3,7 @@ package control
 import (
 	"strings"
 
-	"github.com/cretz/bine/util"
+	"github.com/cretz/bine/torutil"
 )
 
 // Signal invokes SIGNAL.
@@ -30,7 +30,7 @@ func (c *Conn) MapAddresses(addresses ...*KeyVal) ([]*KeyVal, error) {
 	ret := make([]*KeyVal, 0, len(data))
 	for _, address := range data {
 		mappedAddress := &KeyVal{}
-		mappedAddress.Key, mappedAddress.Val, _ = util.PartitionString(address, '=')
+		mappedAddress.Key, mappedAddress.Val, _ = torutil.PartitionString(address, '=')
 		ret = append(ret, mappedAddress)
 	}
 	return ret, nil
@@ -45,8 +45,8 @@ func (c *Conn) GetInfo(keys ...string) ([]*KeyVal, error) {
 	ret := make([]*KeyVal, 0, len(resp.Data))
 	for _, val := range resp.Data {
 		infoVal := &KeyVal{}
-		infoVal.Key, infoVal.Val, _ = util.PartitionString(val, '=')
-		if infoVal.Val, err = util.UnescapeSimpleQuotedStringIfNeeded(infoVal.Val); err != nil {
+		infoVal.Key, infoVal.Val, _ = torutil.PartitionString(val, '=')
+		if infoVal.Val, err = torutil.UnescapeSimpleQuotedStringIfNeeded(infoVal.Val); err != nil {
 			return nil, err
 		}
 		ret = append(ret, infoVal)
