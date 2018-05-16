@@ -38,10 +38,16 @@ func FromCryptoPublicKey(key ed25519.PublicKey) PublicKey {
 	return PublicKey(key)
 }
 
+// Public simply delegates to PublicKey() to satisfy crypto.Signer. This method
+// does a bit more work than the traditional Go ed25519's private key's Public()
+// method so developers are encouraged to reuse the result.
 func (p PrivateKey) Public() crypto.PublicKey {
 	return p.PublicKey()
 }
 
+// PublicKey generates a public key for this private key. This method does a bit
+// more work than the traditional Go ed25519's private key's Public() method so
+// developers are encouraged to reuse the result.
 func (p PrivateKey) PublicKey() PublicKey {
 	var A edwards25519.ExtendedGroupElement
 	var hBytes [32]byte
@@ -52,6 +58,7 @@ func (p PrivateKey) PublicKey() PublicKey {
 	return publicKeyBytes[:]
 }
 
+// Sign is not yet implemented.
 func (p PrivateKey) Sign(rand io.Reader, message []byte, opts crypto.SignerOpts) (signature []byte, err error) {
 	if opts.HashFunc() != crypto.Hash(0) {
 		return nil, errors.New("ed25519: cannot sign hashed message")
