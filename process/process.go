@@ -24,7 +24,7 @@ type Process interface {
 	// analagous to os/exec.Cmd.Start.
 	Start() error
 	// Wait waits for the Tor process to exit and returns error if it was not a
-	// successful exit.  It is analagous to os/exec.Cmd.Wait.
+	// successful exit. It is analagous to os/exec.Cmd.Wait.
 	Wait() error
 }
 

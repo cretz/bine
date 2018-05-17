@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cretz/bine/control"
-	"github.com/cretz/bine/process/embedded"
 
 	"github.com/cretz/bine/process"
 )
@@ -53,12 +52,13 @@ type Tor struct {
 // default instance with no fields set is the default used for Start.
 type StartConf struct {
 	// ExePath is the path to the Tor executable. If it is not present, "tor" is
-	// used either locally or on the PATH.
+	// used either locally or on the PATH. This is ignored if ProcessCreator is
+	// set.
 	ExePath string
 
-	// Embedded is true if Tor is statically compiled. If true, ExePath is
-	// ignored.
-	Embedded bool
+	// ProcessCreator is the override to use a specific process creator. If set,
+	// ExePath is ignored.
+	ProcessCreator process.Creator
 
 	// ControlPort is the port to use for the Tor controller. If it is 0, Tor
 	// picks a port for use.
@@ -159,10 +159,8 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 
 func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	// Get the creator
-	var creator process.Creator
-	if conf.Embedded {
-		creator = embedded.NewCreator()
-	} else {
+	creator := conf.ProcessCreator
+	if creator == nil {
 		torPath := conf.ExePath
 		if torPath == "" {
 			torPath = "tor"
