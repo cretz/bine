@@ -46,7 +46,7 @@ var simpleQuotedStringEscapeReplacer = strings.NewReplacer(
 // EscapeSimpleQuotedString calls EscapeSimpleQuotedStringContents and then
 // surrounds the entire string with double quotes.
 func EscapeSimpleQuotedString(str string) string {
-	return "\"" + simpleQuotedStringEscapeReplacer.Replace(str) + "\""
+	return "\"" + EscapeSimpleQuotedStringContents(str) + "\""
 }
 
 // EscapeSimpleQuotedStringContents escapes backslashes, double quotes,
@@ -74,7 +74,7 @@ func UnescapeSimpleQuotedString(str string) (string, error) {
 }
 
 // UnescapeSimpleQuotedStringContents unescapes backslashes, double quotes,
-// newlines, and carriage returns.
+// newlines, and carriage returns. Also errors if those aren't escaped.
 func UnescapeSimpleQuotedStringContents(str string) (string, error) {
 	ret := ""
 	escaping := false
@@ -91,6 +91,8 @@ func UnescapeSimpleQuotedStringContents(str string) (string, error) {
 			}
 			ret += "\""
 			escaping = false
+		case '\r', '\n':
+			return "", fmt.Errorf("Unescaped newline or carriage return")
 		default:
 			if escaping {
 				if c == 'r' {
@@ -103,6 +105,7 @@ func UnescapeSimpleQuotedStringContents(str string) (string, error) {
 			} else {
 				ret += string(c)
 			}
+			escaping = false
 		}
 	}
 	return ret, nil

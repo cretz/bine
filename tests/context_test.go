@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 
 func GlobalEnabledNetworkContext(t *testing.T) *TestContext {
 	if !torEnabled || !torIncludeNetworkTests {
-		t.Skip("Only runs if -tor and -tor.network is set")
+		t.Skip("Only runs if -tor and -tor.network are set")
 	}
 	if globalEnabledNetworkContext == nil {
 		ctx := NewTestContext(t, nil)

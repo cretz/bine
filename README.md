@@ -11,6 +11,11 @@ Features:
 * Supports statically compiled Tor to embed Tor into the binary
 * Supports both V2 and V3 onion services
 
+See info below, the [API docs](http://godoc.org/github.com/cretz/bine), and the [examples](examples). The project is
+MIT licensed. The Tor docs/specs and https://github.com/yawning/bulb were great helps when building this.
+
+## Example
+
 It is really easy to create an onion service. For example, assuming `tor` is on the `PATH`, this bit of code will show
 a directory server of the current directory:
 
@@ -72,5 +77,11 @@ t, err := tor.Start(nil, &tor.StartConf{ProcessCreator: embedded.NewCreator()})
 Tested on Windows, the original exe file is ~7MB. With Tor statically linked it comes to ~24MB, but Tor does not have to
 be distributed separately. Of course take notice of all licenses in accompanying projects.
 
-Also take a look at the [API docs](http://godoc.org/github.com/cretz/bine) and the [examples](examples). The project is
-MIT licensed. The Tor docs/specs and https://github.com/yawning/bulb were great helps when building this.
+## Testing
+
+To test, a simple `go test ./...` from the base of the repository will work (add in a `-v` in there to see the tests).
+The integration tests in `tests` however will be skipped. To execute those tests, `-tor` must be passed to the test.
+Also, `tor` must be on the `PATH` or `-tor.path` must be set to the path of the `tor` executable. Even with those flags,
+only the integration tests that do not connect to the Tor network are run. To also include the tests that use the Tor
+network, add the `-tor.network` flag. For details Tor logs during any of the integration tests, use the `-tor.verbose`
+flag.
