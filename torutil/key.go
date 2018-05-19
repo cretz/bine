@@ -17,12 +17,12 @@ var serviceIDEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 
 // OnionServiceIDFromPrivateKey generates the onion service ID from the given
 // private key. This panics if the private key is not a crypto/*rsa.PrivateKey
-// or github.com/cretz/bine/torutil/ed25519.PrivateKey.
+// or github.com/cretz/bine/torutil/ed25519.KeyPair.
 func OnionServiceIDFromPrivateKey(key crypto.PrivateKey) string {
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
 		return OnionServiceIDFromV2PublicKey(&k.PublicKey)
-	case ed25519.PrivateKey:
+	case ed25519.KeyPair:
 		return OnionServiceIDFromV3PublicKey(k.PublicKey())
 	}
 	panic(fmt.Sprintf("Unrecognized private key type: %T", key))

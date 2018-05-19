@@ -99,22 +99,22 @@ func (r *RSAKey) Blob() string {
 }
 
 // ED25519Key is a Key for AddOnion that is a ed25519 key (i.e. v3).
-type ED25519Key ed25519.PrivateKey
+type ED25519Key struct{ ed25519.KeyPair }
 
 // ED25519KeyFromBlob creates a ED25519Key for the given response blob.
-func ED25519KeyFromBlob(blob string) (ED25519Key, error) {
+func ED25519KeyFromBlob(blob string) (*ED25519Key, error) {
 	byts, err := base64.StdEncoding.DecodeString(blob)
 	if err != nil {
 		return nil, err
 	}
-	return ED25519Key(ed25519.PrivateKey(byts)), nil
+	return &ED25519Key{ed25519.PrivateKey(byts).KeyPair()}, nil
 }
 
 // Type implements Key.Type.
-func (ED25519Key) Type() KeyType { return KeyTypeED25519V3 }
+func (*ED25519Key) Type() KeyType { return KeyTypeED25519V3 }
 
 // Blob implements Key.Blob.
-func (e ED25519Key) Blob() string { return base64.StdEncoding.EncodeToString(e) }
+func (e *ED25519Key) Blob() string { return base64.StdEncoding.EncodeToString(e.PrivateKey()) }
 
 // AddOnionRequest is a set of request params for AddOnion.
 type AddOnionRequest struct {

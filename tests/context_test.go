@@ -11,12 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var torEnabled bool
 var torExePath string
 var torVerbose bool
 var torIncludeNetworkTests bool
 var globalEnabledNetworkContext *TestContext
 
 func TestMain(m *testing.M) {
+	flag.BoolVar(&torEnabled, "tor", false, "Whether any of the integration tests are enabled")
 	flag.StringVar(&torExePath, "tor.path", "tor", "The Tor exe path")
 	flag.BoolVar(&torVerbose, "tor.verbose", false, "Show verbose test info")
 	flag.BoolVar(&torIncludeNetworkTests, "tor.network", false, "Include network tests")
@@ -29,14 +31,10 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func SkipIfExcludingNetworkTests(t *testing.T) {
-	if !torIncludeNetworkTests {
-		t.Skip("Only runs if -tor.network is set")
-	}
-}
-
 func GlobalEnabledNetworkContext(t *testing.T) *TestContext {
-	SkipIfExcludingNetworkTests(t)
+	if !torEnabled || !torIncludeNetworkTests {
+		t.Skip("Only runs if -tor and -tor.network is set")
+	}
 	if globalEnabledNetworkContext == nil {
 		ctx := NewTestContext(t, nil)
 		ctx.CloseTorOnClose = false
@@ -61,6 +59,9 @@ type TestContext struct {
 }
 
 func NewTestContext(t *testing.T, conf *tor.StartConf) *TestContext {
+	if !torEnabled {
+		t.Skip("Only runs if -tor is set")
+	}
 	// Build start conf
 	if conf == nil {
 		conf = &tor.StartConf{}
