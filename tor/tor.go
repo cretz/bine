@@ -92,7 +92,7 @@ type StartConf struct {
 	// started.
 	ExtraArgs []string
 
-	// TorrcFile is the torrc file to on start. If empty, a blank torrc is
+	// TorrcFile is the torrc file to set on start. If empty, a blank torrc is
 	// created in the data directory and is used instead.
 	TorrcFile string
 

@@ -73,7 +73,7 @@ type ListenConf struct {
 
 	// Version3 determines whether, when Key is nil, a version 2 or version 3
 	// service/key will be generated. If true it is version 3 (an ed25519 key
-	// and v3 onion service) and if false it is version 2 (a RSA-2014 key and v2
+	// and v3 onion service) and if false it is version 2 (a RSA-1024 key and v2
 	// onion service). If Key is not nil, this value is ignored.
 	Version3 bool
 
@@ -106,9 +106,9 @@ type ListenConf struct {
 	// false, the stream is simply not connected but the circuit stays open.
 	MaxStreamsCloseCircuit bool
 
-	// NoWait if true will not wait until the onion service is built. If false,
-	// the network will be enabled if it's not and then we will wait until
-	// the onion service is built.
+	// NoWait if true will not wait until the onion service is published. If
+	// false, the network will be enabled if it's not and then we will wait
+	// until the onion service is published.
 	NoWait bool
 }
 

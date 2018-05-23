@@ -1,0 +1,48 @@
+/*
+To regen, with `protoc` on the `PATH` and `protoc-gen-go` on the `PATH` (usually via `$GOPATH/bin`), from this dir run:
+  
+    protoc --go_out=plugins=grpc:. service.proto
+*/
+syntax = "proto3";
+package pb;
+
+service SimpleService {
+  rpc JoinStrings(JoinStringsRequest) returns (JoinStringsResponse);
+  rpc ProvideStrings(ProvideStringsRequest) returns (stream ProvideStringsResponse);
+  rpc ReceiveStrings(stream ReceiveStringsRequest) returns (ReceiveStringsResponse);
+  rpc ExchangeStrings(stream ExchangeStringsRequest) returns (stream ExchangeStringsResponse);
+}
+
+message JoinStringsRequest {
+  repeated string strings = 1;
+  string delimiter = 2;
+}
+
+message JoinStringsResponse {
+  string joined = 1;
+}
+
+message ProvideStringsRequest {
+  uint32 count = 1;
+}
+
+message ProvideStringsResponse {
+  string string = 1;
+}
+
+message ReceiveStringsRequest {
+  string string = 1;
+}
+
+message ReceiveStringsResponse {
+  repeated string received = 1;
+}
+
+message ExchangeStringsRequest {
+  string string = 1;
+  bool want_return = 2;
+}
+
+message ExchangeStringsResponse {
+  repeated string received = 1;
+}
