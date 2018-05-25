@@ -12,8 +12,7 @@
 // Windows this means something like http://tdm-gcc.tdragon.net/ needs to be
 // present with gcc.exe on the PATH.
 //
-// NOTE: Other OSs besides Windows have not been tested but likely require an
-// LDFLAGS setting here. Pull requests are welcomed.
+// NOTE: This has only been tested with Windows and Linux.
 package embedded
 
 import (
@@ -36,6 +35,7 @@ import (
 #cgo LDFLAGS: -L${SRCDIR}/../../../tor-static/zlib/dist/lib -lz
 #cgo LDFLAGS: -L${SRCDIR}/../../../tor-static/openssl/dist/lib -lssl -lcrypto
 #cgo windows LDFLAGS: -lws2_32 -lcrypt32 -lgdi32
+#cgo !windows LDFLAGS: -lm
 
 #include <stdlib.h>
 #include <tor_api.h>
