@@ -11,8 +11,6 @@
 // static libs are built, this uses CGO to statically link them here. For
 // Windows this means something like http://tdm-gcc.tdragon.net/ needs to be
 // present with gcc.exe on the PATH.
-//
-// NOTE: This has only been tested with Windows and Linux.
 package embedded
 
 import (
