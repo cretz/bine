@@ -207,6 +207,8 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 			return err
 		}
 		args = append(args, "--ControlPort", "auto", "--ControlPortWriteToFile", controlPortFile.Name())
+	} else {
+		args = append(args, "--ControlPort", strconv.Itoa(conf.ControlPort))
 	}
 	// Start process with the args
 	var processCtx context.Context
