@@ -48,8 +48,9 @@ func run() error {
 	// Wait at most a few minutes to publish the service
 	listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer listenCancel()
-	// Create an onion service to listen on a random local port but show as 80
-	onion, err := t.Listen(listenCtx, &tor.ListenConf{RemotePorts: []int{80}})
+	// Create an onion service to listen on a random local port but show as
+	// Do version 3, it's faster to set up
+	onion, err := t.Listen(listenCtx, &tor.ListenConf{RemotePorts: []int{80}, Version3: true})
 	if err != nil {
 		return err
 	}
