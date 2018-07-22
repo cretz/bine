@@ -275,10 +275,9 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 		index := strings.Index(resp.Data[0], " ")
 		if index == -1 {
 			index = strings.Index(resp.Data[0], "\r\n")
-		}
-
-		if index == -1 {
-			return
+			if index == -1 {
+				return
+			}
 		}
 
 		code, data = resp.Data[0][:index], resp.Data[0][index+2:]
