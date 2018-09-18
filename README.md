@@ -1,4 +1,4 @@
-# Bine
+# ![Bine](logo/bine-logo.png)
 
 [![GoDoc](https://godoc.org/github.com/cretz/bine?status.svg)](https://godoc.org/github.com/cretz/bine)
 
