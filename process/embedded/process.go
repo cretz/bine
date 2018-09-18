@@ -9,8 +9,9 @@
 // $GOPATH/src/github.com/cretz/tor-static as if it was fetched with go get. To
 // build the needed static libs, follow the README in that project. Once the
 // static libs are built, this uses CGO to statically link them here. For
-// Windows this means something like http://tdm-gcc.tdragon.net/ needs to be
-// present with gcc.exe on the PATH.
+// Windows this means something like http://www.msys2.org/ needs to be
+// installed with gcc.exe on the PATH (i.e. the same gcc that was used to build
+// the static Tor lib).
 package embedded
 
 import (

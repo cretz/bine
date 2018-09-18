@@ -270,12 +270,14 @@ func (c *Conn) relayAsyncEvents(resp *Response) {
 	var code, data string
 	var dataArray []string
 	if len(resp.Data) == 1 {
-		// If there is a single line of data, first line of it is the code, rest of the first line is data
-		firstNewline := strings.Index(resp.Data[0], "\r\n")
-		if firstNewline == -1 {
-			return
+		// On single line, part up to space, newline, or EOL is the code, rest is data
+		if index := strings.Index(resp.Data[0], " "); index != -1 {
+			code, data = resp.Data[0][:index], resp.Data[0][index+1:]
+		} else if index := strings.Index(resp.Data[0], "\r\n"); index != -1 {
+			code, data = resp.Data[0][:index], resp.Data[0][index+2:]
+		} else {
+			code, data = resp.Data[0], ""
 		}
-		code, data = resp.Data[0][:firstNewline], resp.Data[0][firstNewline+2:]
 	} else if len(resp.Data) > 0 {
 		// If there are multiple lines, the entire first line is the code
 		code, dataArray = resp.Data[0], resp.Data[1:]
