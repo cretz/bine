@@ -1,4 +1,4 @@
-# ![Bine](logo/bine-logo.png)
+# <img src="logo/bine-logo.png" width="180px">
 
 [![GoDoc](https://godoc.org/github.com/cretz/bine?status.svg)](https://godoc.org/github.com/cretz/bine)
 
