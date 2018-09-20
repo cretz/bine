@@ -1,7 +1,7 @@
 // Package tor033 implements process interfaces for statically linked
-// Tor 0.3.3x versions. See the process/embedded package for the generic
+// Tor 0.3.3.x versions. See the process/embedded package for the generic
 // abstraction
-package embedded
+package tor033
 
 import (
 	"context"

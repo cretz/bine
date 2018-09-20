@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 
-	"github.com/cretz/bine/process/embedded"
+	tor035 "github.com/cretz/bine/process/embedded/tor-0.3.5"
 )
 
 // Simply calls Tor will the same parameters
@@ -16,8 +17,11 @@ func main() {
 }
 
 func runTor(args ...string) error {
-	process, err := embedded.NewCreator().New(context.Background(), args...)
+	creator := tor035.NewProcessCreator()
+	creator.SetupControlSocket = true
+	process, err := creator.New(context.Background(), args...)
 	if err == nil {
+		fmt.Printf("Socket pointer: %v\n", tor035.ProcessControlSocket(process))
 		process.Start()
 		err = process.Wait()
 	}
