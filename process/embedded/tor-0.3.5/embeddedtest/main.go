@@ -37,7 +37,7 @@ func runTor(args ...string) error {
 }
 
 func testEmbedConn() error {
-	process, err := tor035.NewCreator().New(context.Background())
+	process, err := tor035.NewCreator().New(context.Background(), "--DisableNetwork", "1")
 	if err != nil {
 		return fmt.Errorf("Failed creating process: %v", err)
 	}
@@ -51,6 +51,7 @@ func testEmbedConn() error {
 	}
 	controlConn := control.NewConn(textproto.NewConn(embedConn))
 	info, err := controlConn.GetInfo("version")
+	controlConn.Close()
 	if err != nil {
 		return fmt.Errorf("Failed getting version: %v", err)
 	}
