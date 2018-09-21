@@ -30,7 +30,8 @@ type Tor struct {
 	// It is used by Close and should not be called directly. This can be nil.
 	ProcessCancelFunc context.CancelFunc
 
-	// ControlPort is the port that Control is connected on.
+	// ControlPort is the port that Control is connected on. It is 0 if the
+	// connection is an embedded control connection.
 	ControlPort int
 
 	// DataDir is the path to the data directory that Tor is using.
@@ -60,8 +61,14 @@ type StartConf struct {
 	// ExePath is ignored.
 	ProcessCreator process.Creator
 
+	// UseEmbeddedControlConn can be set to true to use
+	// process.Process.EmbeddedControlConn() instead of creating a connection
+	// via ControlPort. Note, this only works when ProcessCreator is an
+	// embedded Tor creator with version >= 0.3.5.x.
+	UseEmbeddedControlConn bool
+
 	// ControlPort is the port to use for the Tor controller. If it is 0, Tor
-	// picks a port for use.
+	// picks a port for use. This is ignored if UseEmbeddedControlConn is true.
 	ControlPort int
 
 	// DataDir is the directory used by Tor. If it is empty, a temporary
@@ -194,23 +201,25 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 		}
 	}
 	args = append(args, "-f", torrcFileName)
-	// Create file for Tor to write the control port to if it's not told to us
+	// Create file for Tor to write the control port to if it's not told to us and we're not embedded
 	var controlPortFileName string
 	var err error
-	if conf.ControlPort == 0 {
-		controlPortFile, err := ioutil.TempFile(t.DataDir, "control-port-")
-		if err != nil {
-			return err
+	if !conf.UseEmbeddedControlConn {
+		if conf.ControlPort == 0 {
+			controlPortFile, err := ioutil.TempFile(t.DataDir, "control-port-")
+			if err != nil {
+				return err
+			}
+			controlPortFileName = controlPortFile.Name()
+			if err = controlPortFile.Close(); err != nil {
+				return err
+			}
+			args = append(args, "--ControlPort", "auto", "--ControlPortWriteToFile", controlPortFile.Name())
+		} else {
+			args = append(args, "--ControlPort", strconv.Itoa(conf.ControlPort))
 		}
-		controlPortFileName = controlPortFile.Name()
-		if err = controlPortFile.Close(); err != nil {
-			return err
-		}
-		args = append(args, "--ControlPort", "auto", "--ControlPortWriteToFile", controlPortFile.Name())
-	} else {
-		args = append(args, "--ControlPort", strconv.Itoa(conf.ControlPort))
 	}
-	// Start process with the args
+	// Create process creator with args
 	var processCtx context.Context
 	processCtx, t.ProcessCancelFunc = context.WithCancel(ctx)
 	args = append(args, conf.ExtraArgs...)
@@ -218,39 +227,56 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	if err != nil {
 		return err
 	}
+	// Use the embedded conn if requested
+	if conf.UseEmbeddedControlConn {
+		t.Debugf("Using embedded control connection")
+		conn, err := p.EmbeddedControlConn()
+		if err != nil {
+			return fmt.Errorf("Unable to get embedded control conn: %v", err)
+		}
+		t.Control = control.NewConn(textproto.NewConn(conn))
+		t.Control.DebugWriter = t.DebugWriter
+	}
+	// Start process with the args
 	t.Debugf("Starting tor with args %v", args)
 	if err = p.Start(); err != nil {
 		return err
 	}
 	t.Process = p
-	// Try a few times to read the control port file if we need to
-	t.ControlPort = conf.ControlPort
-	if t.ControlPort == 0 {
-	ControlPortCheck:
-		for i := 0; i < 10; i++ {
-			select {
-			case <-ctx.Done():
-				err = ctx.Err()
-				break ControlPortCheck
-			default:
-				// Try to read the controlport file, or wait a bit
-				var byts []byte
-				if byts, err = ioutil.ReadFile(controlPortFileName); err != nil {
+	// If not embedded, try a few times to read the control port file if we need to
+	if !conf.UseEmbeddedControlConn {
+		t.ControlPort = conf.ControlPort
+		if t.ControlPort == 0 {
+		ControlPortCheck:
+			for i := 0; i < 10; i++ {
+				select {
+				case <-ctx.Done():
+					err = ctx.Err()
 					break ControlPortCheck
-				} else if t.ControlPort, err = process.ControlPortFromFileContents(string(byts)); err == nil {
-					break ControlPortCheck
+				default:
+					// Try to read the controlport file, or wait a bit
+					var byts []byte
+					if byts, err = ioutil.ReadFile(controlPortFileName); err != nil {
+						break ControlPortCheck
+					} else if t.ControlPort, err = process.ControlPortFromFileContents(string(byts)); err == nil {
+						break ControlPortCheck
+					}
+					time.Sleep(200 * time.Millisecond)
 				}
-				time.Sleep(200 * time.Millisecond)
 			}
-		}
-		if err != nil {
-			return fmt.Errorf("Unable to read control port file: %v", err)
+			if err != nil {
+				return fmt.Errorf("Unable to read control port file: %v", err)
+			}
 		}
 	}
 	return nil
 }
 
 func (t *Tor) connectController(ctx context.Context, conf *StartConf) error {
+	// This doesn't apply if already connected (e.g. using embedded conn)
+	if t.Control != nil {
+		return nil
+	}
 	t.Debugf("Connecting to control port %v", t.ControlPort)
 	textConn, err := textproto.Dial("tcp", "127.0.0.1:"+strconv.Itoa(t.ControlPort))
 	if err != nil {

@@ -15,6 +15,8 @@
 //
 // The default in here is currently for Tor 0.3.3.x which uses the tor-0.3.3
 // subdirectory. A different subdirectory can be used for a different version.
+// Note that the current version doesn't support
+// process.Process.EmbeddedControlConn().
 package embedded
 
 import (

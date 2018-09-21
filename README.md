@@ -10,6 +10,7 @@ Features:
 * Support for `net.Conn` and `net.Listen` style APIs
 * Supports statically compiled Tor to embed Tor into the binary
 * Supports both V2 and V3 onion services
+* Support for embedded control socket in Tor >= 0.3.5 (non-Windows)
 
 See info below, the [API docs](http://godoc.org/github.com/cretz/bine), and the [examples](examples). The project is
 MIT licensed. The Tor docs/specs and https://github.com/yawning/bulb were great helps when building this.
