@@ -6,6 +6,8 @@ package tor035
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 
 	"github.com/cretz/bine/process"
 )
@@ -50,12 +52,7 @@ static void freeCharArray(char **a, int size) {
 */
 import "C"
 
-// ProcessCreator implements process.Creator
-type ProcessCreator struct {
-	// If set to true, ProcessControlSocket will have a raw socket to
-	// communicate with Tor on.
-	SetupControlSocket bool
-}
+type embeddedCreator struct{}
 
 // ProviderVersion returns the Tor provider name and version exposed from the
 // Tor embedded API.
@@ -63,32 +60,27 @@ func ProviderVersion() string {
 	return C.GoString(C.tor_api_get_provider_version())
 }
 
-// NewProcessCreator creates a process.Creator for statically-linked Tor
-// embedded in the binary.
-func NewProcessCreator() *ProcessCreator {
-	return &ProcessCreator{}
+// NewCreator creates a process.Creator for statically-linked Tor embedded in
+// the binary.
+func NewCreator() process.Creator {
+	return embeddedCreator{}
 }
 
 type embeddedProcess struct {
-	ctx           context.Context
-	mainConf      *C.struct_tor_main_configuration_t
-	controlSocket uintptr
-	args          []string
-	doneCh        chan int
+	ctx      context.Context
+	mainConf *C.struct_tor_main_configuration_t
+	args     []string
+	doneCh   chan int
 }
 
 // New implements process.Creator.New
-func (p *ProcessCreator) New(ctx context.Context, args ...string) (process.Process, error) {
-	ret := &embeddedProcess{
-		ctx:      ctx,
+func (embeddedCreator) New(ctx context.Context, args ...string) (process.Process, error) {
+	return &embeddedProcess{
+		ctx: ctx,
+		// TODO: mem leak if they never call Start; consider adding a Close()
 		mainConf: C.tor_main_configuration_new(),
 		args:     args,
-	}
-	// If they want a control socket, this is where we add it
-	if p.SetupControlSocket {
-		ret.controlSocket = uintptr(C.tor_main_configuration_setup_control_socket(ret.mainConf))
-	}
-	return ret, nil
+	}, nil
 }
 
 func (e *embeddedProcess) Start() error {
@@ -136,9 +128,11 @@ func (e *embeddedProcess) Wait() error {
 	}
 }
 
-// ProcessControlSocket returns a non-zero value for a process created by a
-// ProcessCreator with SetupControlSocket as true. Note, the value of this is
-// invalid when Start returns.
-func ProcessControlSocket(p process.Process) uintptr {
-	return p.(*embeddedProcess).controlSocket
+func (e *embeddedProcess) EmbeddedControlConn() (net.Conn, error) {
+	file := os.NewFile(uintptr(C.tor_main_configuration_setup_control_socket(e.mainConf)), "")
+	conn, err := net.FileConn(file)
+	if err != nil {
+		err = fmt.Errorf("Unable to create conn from control socket: %v", err)
+	}
+	return conn, err
 }

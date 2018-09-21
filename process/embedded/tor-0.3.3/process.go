@@ -110,3 +110,7 @@ func (e *embeddedProcess) Wait() error {
 		return fmt.Errorf("Command completed with error exit code: %v", code)
 	}
 }
+
+func (e *embeddedProcess) EmbeddedControlConn() (net.Conn, error) {
+	return nil, process.ErrControlConnUnsupported
+}
