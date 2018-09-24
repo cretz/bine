@@ -7,3 +7,4 @@ The following examples are in this directory:
 * [embeddedversion](embeddedversion) - Example showing how to dump the version of Tor embedded in the binary
 * [embeddedfileserver](embeddedfileserver) - Example showing a file server using Tor embedded in the binary
 * [grpc](grpc) - Example showing how to use gRPC over Tor
+* [httpaltsvc](httpaltsvc) - Example showing how to use .onion address as `Alt-Svc` of regular website (in development)
