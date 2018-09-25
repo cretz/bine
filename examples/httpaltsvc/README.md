@@ -30,3 +30,5 @@ earlier > check "Trust this CA to identify websites" and click `OK`. Restart the
 Point yor DNS to this machine's IP (or use start `ngrok http 80` via [ngrok.com](https://ngrok.com/))
 
 TODO: the rest...
+
+TODO: alt-svc onions appear broken in TBB

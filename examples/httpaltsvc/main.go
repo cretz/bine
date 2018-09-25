@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -29,6 +31,7 @@ func main() {
 }
 
 func run(domain string) error {
+	fmt.Println("Pleae wait while generating services")
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
 	// Make sure mkcert is available
@@ -110,10 +113,13 @@ func start(ctx context.Context, domain string, httpAddr string) (srv *server, er
 	// Listen on the onions
 	srv.httpSrvErrCh = make(chan error, 3)
 	go func(errCh chan error) {
-		errCh <- http.Serve(srv.onion1, srv.NewHandler(srv.onion1.ID+".onion", srv.onion2.ID+".onion:443"))
+		errCh <- http.Serve(srv.onion1,
+			srv.NewHandler(srv.onion1.ID+".onion", srv.onion2.ID+".onion:443"))
 	}(srv.httpSrvErrCh)
 	go func(errCh chan error) {
-		errCh <- http.ServeTLS(srv.onion2, srv.NewHandler(srv.onion2.ID+".onion", ""), cert, key)
+		errCh <- http.ServeTLS(srv.onion2,
+			srv.NewHandler(srv.onion2.ID+".onion", "", "http://"+srv.onion1.ID+".onion", "https://"+domain,
+				"http://"+domain), cert, key)
 	}(srv.httpSrvErrCh)
 	// Start HTTP server
 	srv.httpSrv = &http.Server{Addr: httpAddr, Handler: srv.NewHandler(httpAddr, srv.onion2.ID+".onion:443")}
@@ -123,31 +129,63 @@ func start(ctx context.Context, domain string, httpAddr string) (srv *server, er
 
 func (s *server) Err() <-chan error { return s.httpSrvErrCh }
 
-func (s *server) NewHandler(siteAddr string, altSvc string) http.Handler {
-	hitCount := 0
+func (s *server) NewHandler(siteAddr string, altSvc string, origins ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		hitCount++
-		fmt.Printf("Accessed %v (%v)\n", siteAddr, hitCount)
-		// Set an alt-svc header
-		if altSvc != "" {
-			w.Header().Add("Alt-Svc", "h2=\""+altSvc+"\"; ma=600")
-		}
-		// Respond
-		remoteAddr, _, _ := torutil.PartitionString(r.RemoteAddr, ':')
-		exit := ""
-		if !s.exitAddrs[remoteAddr] {
-			exit = " NOT"
-		}
-		fmt.Fprintf(w, "Server-side site addr: %v\n", siteAddr)
-		fmt.Fprintf(w, "You accessed %v on %v from %v which is%v an exit node\n",
-			r.URL.Path, r.Host, r.RemoteAddr, exit)
-		fmt.Fprintf(w, "--------------- Headers ---------------\n")
-		for h, vals := range r.Header {
-			for _, val := range vals {
-				fmt.Fprintf(w, "%v: %v\n", h, val)
-			}
-		}
+		// TODO: re-enable if necessary
+		// if r.URL.Path == "/.well-known/http-opportunistic" {
+		// 	s.handleOpportunistic(siteAddr, origins, w, r)
+		// } else {
+		s.handleRegularRequest(siteAddr, altSvc, w, r)
+		// }
 	})
+}
+
+func (s *server) handleOpportunistic(siteAddr string, origins []string, w http.ResponseWriter, r *http.Request) {
+	if verbose {
+		fmt.Printf("-------\nAccessed %v, responding with origins %v, site info:\n%v-------\n",
+			siteAddr, origins, string(s.requestInfo(siteAddr, r)))
+	}
+	w.Header().Add("Content-Type", "application/json")
+	byts, _ := json.Marshal(origins)
+	w.Write(byts)
+}
+
+func (s *server) handleRegularRequest(siteAddr string, altSvc string, w http.ResponseWriter, r *http.Request) {
+	// Set an alt-svc header
+	if altSvc != "" {
+		w.Header().Add("Alt-Svc", "h2=\""+altSvc+"\"; ma=600")
+	}
+	// Respond
+	resp := s.requestInfo(siteAddr, r)
+	if verbose {
+		fmt.Printf("-------\nAccessed  %v, responding with:\n%v-------\n", siteAddr, string(resp))
+	}
+	w.Write(resp)
+}
+
+func (s *server) requestInfo(siteAddr string, r *http.Request) []byte {
+	remoteAddr := r.Header.Get("X-Forwarded-For")
+	if remoteAddr == "" {
+		remoteAddr, _, _ = torutil.PartitionString(r.RemoteAddr, ':')
+	}
+	exit := ""
+	if !s.exitAddrs[remoteAddr] {
+		exit = " NOT"
+	}
+	buf := &bytes.Buffer{}
+	fmt.Fprintf(buf, "Server-side site addr: %v\n", siteAddr)
+	fmt.Fprintf(buf, "You accessed %v on %v from %v which is%v an exit node\n",
+		r.URL.Path, r.Host, remoteAddr, exit)
+	fmt.Fprintf(buf, "Headers:\n")
+	for h, vals := range r.Header {
+		for _, val := range vals {
+			fmt.Fprintf(buf, "  %v: %v\n", h, val)
+		}
+	}
+	if verbose {
+		fmt.Printf("-------\nAccessed  %v, responding with:\n%v-------\n", siteAddr, string(buf.Bytes()))
+	}
+	return buf.Bytes()
 }
 
 func (s *server) Close() {
@@ -179,7 +217,6 @@ func getExitAddresses() (map[string]bool, error) {
 	for _, line := range strings.Split(string(body), "\n") {
 		pieces := strings.Split(strings.TrimSpace(line), " ")
 		if len(pieces) >= 2 && pieces[0] == "ExitAddress" {
-			fmt.Printf("Found exit: '%v'\n", pieces[1])
 			ret[pieces[1]] = true
 		}
 	}
