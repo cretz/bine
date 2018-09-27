@@ -47,6 +47,14 @@ type Tor struct {
 
 	// StopProcessOnClose, if true, will attempt to halt the process on close.
 	StopProcessOnClose bool
+
+	// GeoIPCreatedFile is the path, relative to DataDir, that was created from
+	// StartConf.GeoIPFileReader. It is empty if no file was created.
+	GeoIPCreatedFile string
+
+	// GeoIPv6CreatedFile is the path, relative to DataDir, that was created
+	// from StartConf.GeoIPFileReader. It is empty if no file was created.
+	GeoIPv6CreatedFile string
 }
 
 // StartConf is the configuration used for Start when starting a Tor instance. A
@@ -114,6 +122,18 @@ type StartConf struct {
 	// default. This means the caller could set their own or just let it
 	// default to 9050.
 	NoAutoSocksPort bool
+
+	// GeoIPReader, if present, is called before start to copy geo IP files to
+	// the data directory. Errors are propagated. If the ReadCloser is present,
+	// it is copied to the data dir, overwriting as necessary, and then closed
+	// and the appropriate command line argument is added to reference it. If
+	// both the ReadCloser and error are nil, no copy or command line argument
+	// is used for that version. This is called twice, once with false and once
+	// with true for ipv6.
+	//
+	// This can be set to torutil/geoipembed.GeoIPReader to use an embedded
+	// source.
+	GeoIPFileReader func(ipv6 bool) (io.ReadCloser, error)
 }
 
 // Start a Tor instance and connect to it. If ctx is nil, context.Background()
@@ -144,9 +164,15 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 	} else if err := os.MkdirAll(tor.DataDir, 0600); err != nil {
 		return nil, fmt.Errorf("Unable to create data dir: %v", err)
 	}
-	// From this point on, we must close tor if we error
+
+	// !!!! From this point on, we must close tor if we error !!!!
+
+	// Copy geoip stuff if necessary
+	err := tor.copyGeoIPFiles(conf)
 	// Start tor
-	err := tor.startProcess(ctx, conf)
+	if err == nil {
+		err = tor.startProcess(ctx, conf)
+	}
 	// Connect the controller
 	if err == nil {
 		err = tor.connectController(ctx, conf)
@@ -162,6 +188,43 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 		}
 	}
 	return tor, err
+}
+
+func (t *Tor) copyGeoIPFiles(conf *StartConf) error {
+	if conf.GeoIPFileReader == nil {
+		return nil
+	}
+	if r, err := conf.GeoIPFileReader(false); err != nil {
+		return fmt.Errorf("Unable to read geoip file: %v", err)
+	} else if r != nil {
+		t.GeoIPCreatedFile = "geoip"
+		if err := createFile(filepath.Join(t.DataDir, "geoip"), r); err != nil {
+			return fmt.Errorf("Unable to create geoip file: %v", err)
+		}
+	}
+	if r, err := conf.GeoIPFileReader(true); err != nil {
+		return fmt.Errorf("Unable to read geoip6 file: %v", err)
+	} else if r != nil {
+		t.GeoIPv6CreatedFile = "geoip6"
+		if err := createFile(filepath.Join(t.DataDir, "geoip6"), r); err != nil {
+			return fmt.Errorf("Unable to create geoip6 file: %v", err)
+		}
+	}
+	return nil
+}
+
+func createFile(to string, from io.ReadCloser) error {
+	f, err := os.Create(to)
+	if err == nil {
+		_, err = io.Copy(f, from)
+		if closeErr := f.Close(); err == nil {
+			err = closeErr
+		}
+	}
+	if closeErr := from.Close(); err == nil {
+		err = closeErr
+	}
+	return err
 }
 
 func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
@@ -187,6 +250,12 @@ func (t *Tor) startProcess(ctx context.Context, conf *StartConf) error {
 	}
 	if !conf.NoAutoSocksPort {
 		args = append(args, "--SocksPort", "auto")
+	}
+	if t.GeoIPCreatedFile != "" {
+		args = append(args, "--GeoIPFile", filepath.Join(t.DataDir, t.GeoIPCreatedFile))
+	}
+	if t.GeoIPv6CreatedFile != "" {
+		args = append(args, "--GeoIPv6File", filepath.Join(t.DataDir, t.GeoIPv6CreatedFile))
 	}
 	// If there is no Torrc file, create a blank temp one
 	torrcFileName := conf.TorrcFile
