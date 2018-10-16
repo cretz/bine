@@ -6,6 +6,7 @@ package tor033
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/cretz/bine/process"
 )
