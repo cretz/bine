@@ -8,12 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cretz/bine/tor"
 	"golang.org/x/net/context/ctxhttp"
 )
 
 func TestDialerSimpleHTTP(t *testing.T) {
 	ctx := GlobalEnabledNetworkContext(t)
-	httpClient := httpClient(ctx)
+	httpClient := httpClient(ctx, nil)
 	// IsTor check
 	byts := httpGet(ctx, httpClient, "https://check.torproject.org/api/ip")
 	jsn := map[string]interface{}{}
@@ -21,12 +22,12 @@ func TestDialerSimpleHTTP(t *testing.T) {
 	ctx.Require.True(jsn["IsTor"].(bool))
 }
 
-func httpClient(ctx *TestContext) *http.Client {
+func httpClient(ctx *TestContext, conf *tor.DialConf) *http.Client {
 	// 15 seconds max to dial
 	dialCtx, dialCancel := context.WithTimeout(ctx, 15*time.Second)
 	defer dialCancel()
 	// Make connection
-	dialer, err := ctx.Dialer(dialCtx, nil)
+	dialer, err := ctx.Dialer(dialCtx, conf)
 	ctx.Require.NoError(err)
 	return &http.Client{Transport: &http.Transport{DialContext: dialer.DialContext}}
 }

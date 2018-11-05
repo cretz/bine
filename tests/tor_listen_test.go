@@ -50,7 +50,7 @@ func startHTTPServer(
 	handlePattern string,
 	handler func(http.ResponseWriter, *http.Request),
 ) (*http.Client, *http.Server, *tor.OnionService) {
-	httpClient := httpClient(ctx)
+	httpClient := httpClient(ctx, nil)
 	// Wait at most a few minutes for the entire test
 	listenCtx, listenCancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer listenCancel()

@@ -25,8 +25,13 @@ type DialConf struct {
 	// is empty and ProxyAddress is not empty, it defaults to "tcp".
 	ProxyNetwork string
 
-	// ProxyAuth is the auth for the proxy. An empty auth means no auth, a nil
-	// auth means it is looked up.
+	// ProxyAuth is the auth for the proxy. Since Tor's SOCKS5 proxy is
+	// unauthenticated, this is rarely needed. It can be used when
+	// IsolateSOCKSAuth is set to ensure separate circuits.
+	//
+	// This should not be confused with downstream SOCKS proxy authentication
+	// which is set via Tor values for Socks5ProxyUsername and
+	// Socks5ProxyPassword when Socks5Proxy is set.
 	ProxyAuth *proxy.Auth
 
 	// SkipEnableNetwork, if true, will skip the enable network step in Dialer.
@@ -72,23 +77,8 @@ func (t *Tor) Dialer(ctx context.Context, conf *DialConf) (*Dialer, error) {
 	} else if proxyNetwork == "" {
 		proxyNetwork = "tcp"
 	}
-	// Lookup proxy auth as needed
-	proxyAuth := conf.ProxyAuth
-	if proxyAuth == nil {
-		info, err := t.Control.GetConf("Socks5ProxyUsername", "Socks5ProxyPassword")
-		if err != nil {
-			return nil, err
-		}
-		if len(info) != 2 || info[0].Key != "Socks5ProxyUsername" || info[1].Key != "Socks5ProxyPassword" {
-			return nil, fmt.Errorf("Unable to get proxy auth")
-		}
-		proxyAuth = &proxy.Auth{User: info[0].Val, Password: info[1].Val}
-	}
-	if proxyAuth.User == "" && proxyAuth.Password == "" {
-		proxyAuth = nil
-	}
 
-	dialer, err := proxy.SOCKS5(proxyNetwork, proxyAddress, proxyAuth, conf.Forward)
+	dialer, err := proxy.SOCKS5(proxyNetwork, proxyAddress, conf.ProxyAuth, conf.Forward)
 	if err != nil {
 		return nil, err
 	}
