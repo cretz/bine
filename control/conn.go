@@ -56,12 +56,14 @@ func (c *Conn) SendRequest(format string, args ...interface{}) (*Response, error
 	if c.debugEnabled() {
 		c.debugf("Write line: %v", fmt.Sprintf(format, args...))
 	}
+
+	c.readLock.Lock()
+	defer c.readLock.Unlock()
+
 	id, err := c.conn.Cmd(format, args...)
 	if err != nil {
 		return nil, err
 	}
-	c.readLock.Lock()
-	defer c.readLock.Unlock()
 	c.conn.StartResponse(id)
 	defer c.conn.EndResponse(id)
 	// Get the first non-async response
