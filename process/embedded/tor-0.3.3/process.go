@@ -23,7 +23,7 @@ import (
 #cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/xz/dist/lib -llzma
 #cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/zlib/dist/lib -lz
 #cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/openssl/dist/lib -lssl -lcrypto
-#cgo windows LDFLAGS: -lws2_32 -lcrypt32 -lgdi32
+#cgo windows LDFLAGS: -lws2_32 -lcrypt32 -lgdi32 -Wl,-Bstatic -lpthread
 #cgo !windows LDFLAGS: -lm
 
 #include <stdlib.h>
