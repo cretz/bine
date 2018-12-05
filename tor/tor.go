@@ -161,7 +161,7 @@ func Start(ctx context.Context, conf *StartConf) (*Tor, error) {
 		}
 		tor.Debugf("Created temp data directory at: %v", tor.DataDir)
 		tor.DeleteDataDirOnClose = !conf.RetainTempDataDir
-	} else if err := os.MkdirAll(tor.DataDir, 0600); err != nil {
+	} else if err := os.MkdirAll(tor.DataDir, 0700); err != nil {
 		return nil, fmt.Errorf("Unable to create data dir: %v", err)
 	}
 
