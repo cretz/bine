@@ -14,8 +14,9 @@ import (
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../../../../tor-static/tor/src/feature/api
+// The libs below are generated via tor-static's show-libs
 #cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/tor/src/core -ltor-app
-#cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/tor/src/lib -ltor-compress -ltor-evloop -ltor-tls -ltor-crypt-ops -lcurve25519_donna -ltor-process -ltor-time -ltor-fs -ltor-encoding -ltor-sandbox -ltor-container -ltor-net -ltor-thread -ltor-memarea -ltor-math -ltor-meminfo -ltor-osinfo -ltor-log -ltor-lock -ltor-fdio -ltor-string -ltor-term -ltor-smartlist-core -ltor-malloc -ltor-wallclock -ltor-err -ltor-intmath -ltor-ctime -ltor-trace
+#cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/tor/src/lib -ltor-compress -ltor-evloop -ltor-tls -ltor-crypt-ops -lcurve25519_donna -ltor-geoip -ltor-process -ltor-time -ltor-fs -ltor-encoding -ltor-sandbox -ltor-container -ltor-net -ltor-thread -ltor-memarea -ltor-math -ltor-meminfo -ltor-osinfo -ltor-log -ltor-lock -ltor-fdio -ltor-string -ltor-term -ltor-smartlist-core -ltor-malloc -ltor-wallclock -ltor-err -ltor-intmath -ltor-ctime -ltor-trace
 #cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/tor/src/ext/keccak-tiny -lkeccak-tiny
 #cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/tor/src/ext/ed25519/ref10 -led25519_ref10
 #cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/tor/src/ext/ed25519/donna -led25519_donna
