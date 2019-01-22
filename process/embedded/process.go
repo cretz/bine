@@ -13,20 +13,20 @@
 // installed with gcc.exe on the PATH (i.e. the same gcc that was used to build
 // the static Tor lib).
 //
-// The default in here is currently for Tor 0.3.3.x which uses the tor-0.3.3
+// The default in here is currently for Tor 0.3.5.x which uses the tor-0.3.5
 // subdirectory. A different subdirectory can be used for a different version.
-// Note that the current version doesn't support
-// process.Process.EmbeddedControlConn().
+// Note that the current version does support
+// process.Process.EmbeddedControlConn() on non-Windows.
 package embedded
 
 import (
 	"github.com/cretz/bine/process"
 
-	tor033 "github.com/cretz/bine/process/embedded/tor-0.3.3"
+	tor035 "github.com/cretz/bine/process/embedded/tor-0.3.5"
 )
 
 // NewCreator creates a process.Creator for statically-linked Tor embedded in
 // the binary.
 func NewCreator() process.Creator {
-	return tor033.NewCreator()
+	return tor035.NewCreator()
 }

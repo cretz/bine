@@ -6,7 +6,7 @@
 //
 // * Supports statically compiled Tor to embed Tor into the binary
 //
-// * Supports both V2 and V3 onion services
+// * Supports both v2 and v3 onion services
 //
 // * Support for embedded control socket in Tor >= 0.3.5 (non-Windows)
 //

@@ -9,7 +9,7 @@ Features:
 * Full support for the Tor controller API
 * Support for `net.Conn` and `net.Listen` style APIs
 * Supports statically compiled Tor to embed Tor into the binary
-* Supports both V2 and V3 onion services
+* Supports both v2 and v3 onion services
 * Support for embedded control socket in Tor >= 0.3.5 (non-Windows)
 
 See info below, the [API docs](http://godoc.org/github.com/cretz/bine), and the [examples](examples). The project is
@@ -44,8 +44,8 @@ func main() {
 	// Wait at most a few minutes to publish the service
 	listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer listenCancel()
-	// Create an onion service to listen on any port but show as 80
-	onion, err := t.Listen(listenCtx, &tor.ListenConf{RemotePorts: []int{80}})
+	// Create a v3 onion service to listen on any port but show as 80
+	onion, err := t.Listen(listenCtx, &tor.ListenConf{Version3: true, RemotePorts: []int{80}})
 	if err != nil {
 		log.Panicf("Unable to create onion service: %v", err)
 	}
@@ -74,6 +74,10 @@ which will require [building Tor statically](https://github.com/cretz/tor-static
 ```go
 t, err := tor.Start(nil, &tor.StartConf{ProcessCreator: embedded.NewCreator()})
 ```
+
+This defaults to Tor 0.3.5.x versions but others can be used from different packages. In non-Windows environments, the
+`UseEmbeddedControlConn` field in `StartConf` can be set to `true` to use an embedded socket that does not open a
+control port.
 
 Tested on Windows, the original exe file is ~7MB. With Tor statically linked it comes to ~24MB, but Tor does not have to
 be distributed separately. Of course take notice of all licenses in accompanying projects.
