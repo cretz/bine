@@ -9,6 +9,7 @@ package process
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -63,7 +64,7 @@ func (e *exeProcessCreator) New(ctx context.Context, args ...string) (Process, e
 
 // ErrControlConnUnsupported is returned by Process.EmbeddedControlConn when
 // it is unsupported.
-var ErrControlConnUnsupported = fmt.Errorf("Control conn not supported")
+var ErrControlConnUnsupported = errors.New("control conn not supported")
 
 func (e *exeProcess) EmbeddedControlConn() (net.Conn, error) {
 	return nil, ErrControlConnUnsupported
