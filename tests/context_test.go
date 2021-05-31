@@ -83,6 +83,9 @@ func NewTestContext(t *testing.T, conf *tor.StartConf) *TestContext {
 	return ret
 }
 
+// Deadline to disambiguate context and test deadline and use test one.
+func (t *TestContext) Deadline() (time.Time, bool) { return t.T.Deadline() }
+
 func (t *TestContext) Close() {
 	if t.CloseTorOnClose {
 		if err := t.Tor.Close(); err != nil {
