@@ -31,7 +31,7 @@ func main() {
 }
 
 func run(domain string) error {
-	fmt.Println("Pleae wait while generating services")
+	fmt.Println("Please wait while generating services")
 	ctx, cancelFn := context.WithCancel(context.Background())
 	defer cancelFn()
 	// Make sure mkcert is available

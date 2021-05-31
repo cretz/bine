@@ -8,3 +8,7 @@ The following examples are in this directory:
 * [embeddedfileserver](embeddedfileserver) - Example showing a file server using Tor embedded in the binary
 * [grpc](grpc) - Example showing how to use gRPC over Tor
 * [httpaltsvc](httpaltsvc) - Example showing how to use .onion address as `Alt-Svc` of regular website (in development)
+
+To run an example, while in this directory run the following with `<example>` replaced with the desired example:
+
+    go run ./<example>
