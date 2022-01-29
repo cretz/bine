@@ -30,7 +30,6 @@ func TestForwardSimpleHTTP(t *testing.T) {
 
 	// Forward as an onion service on test ports
 	conf := &tor.ForwardConf{
-		Version3: true,
 		PortForwards: map[string][]int{
 			server.Listener.Addr().String(): remotePorts,
 		},

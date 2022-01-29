@@ -3,7 +3,6 @@ package tor
 import (
 	"context"
 	"crypto"
-	"crypto/rsa"
 	"fmt"
 	"strconv"
 
@@ -18,13 +17,9 @@ type OnionForward struct {
 	ID string
 
 	// Key is the private key for this service. It is either the set key, the
-	// generated key, or nil if asked to discard the key. If present, it is
-	// *crypto/rsa.PrivateKey (1024 bit) when Version3 is false or
-	// github.com/cretz/bine/torutil/ed25519.KeyPair when Version3 is true.
+	// generated key, or nil if asked to discard the key. If present, it is an
+	// instance of github.com/cretz/bine/torutil/ed25519.KeyPair.
 	Key crypto.PrivateKey
-
-	// Version3 says whether or not this service is a V3 service.
-	Version3 bool
 
 	// ClientAuths is the credential set for clients. The keys are username and
 	// the values are credentials. The credentials will always be present even
@@ -45,19 +40,12 @@ type ForwardConf struct {
 	// service.
 	PortForwards map[string][]int
 
-	// Key is the private key to use. If not present, a key is generated based
-	// on whether Version3 is true or false. If present, it must be a
-	// *crypto/rsa.PrivateKey (1024 bit), a
+	// Key is the private key to use. If not present, a key is generated. If
+	// present, it must be an instance of
 	// github.com/cretz/bine/torutil/ed25519.KeyPair, a
 	// golang.org/x/crypto/ed25519.PrivateKey, or a
 	// github.com/cretz/bine/control.Key.
 	Key crypto.PrivateKey
-
-	// Version3 determines whether, when Key is nil, a version 2 or version 3
-	// service/key will be generated. If true it is version 3 (an ed25519 key
-	// and v3 onion service) and if false it is version 2 (a RSA-1024 key and v2
-	// onion service). If Key is not nil, this value is ignored.
-	Version3 bool
 
 	// ClientAuths is the set of usernames and credentials for client
 	// authentication. The keys are usernames and the values are credentials. If
@@ -127,43 +115,18 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 	// Set the key
 	switch key := conf.Key.(type) {
 	case nil:
-		fwd.Version3 = conf.Version3
-		if conf.Version3 {
-			req.Key = control.GenKey(control.KeyAlgoED25519V3)
-		} else {
-			req.Key = control.GenKey(control.KeyAlgoRSA1024)
-		}
+		req.Key = control.GenKey(control.KeyAlgoED25519V3)
 	case control.GenKey:
-		fwd.Version3 = conf.Version3
 		req.Key = key
-	case *rsa.PrivateKey:
-		fwd.Key = key
-		fwd.Version3 = false
-		if key.N == nil || key.N.BitLen() != 1024 {
-			err = fmt.Errorf("RSA key must be 1024 bits")
-		} else {
-			req.Key = &control.RSAKey{PrivateKey: key}
-		}
-	case *control.RSAKey:
-		fwd.Key = key.PrivateKey
-		fwd.Version3 = false
-		if key.N == nil || key.N.BitLen() != 1024 {
-			err = fmt.Errorf("RSA key must be 1024 bits")
-		} else {
-			req.Key = key
-		}
 	case ed25519.KeyPair:
 		fwd.Key = key
-		fwd.Version3 = true
 		req.Key = &control.ED25519Key{key}
 	case othered25519.PrivateKey:
 		properKey := ed25519.FromCryptoPrivateKey(key)
 		fwd.Key = properKey
-		fwd.Version3 = true
 		req.Key = &control.ED25519Key{properKey}
 	case *control.ED25519Key:
 		fwd.Key = key.KeyPair
-		fwd.Version3 = true
 		req.Key = key
 	default:
 		err = fmt.Errorf("Unrecognized key type: %T", key)
@@ -195,8 +158,6 @@ func (t *Tor) Forward(ctx context.Context, conf *ForwardConf) (*OnionForward, er
 		switch key := resp.Key.(type) {
 		case nil:
 			// Do nothing
-		case *control.RSAKey:
-			fwd.Key = key.PrivateKey
 		case *control.ED25519Key:
 			fwd.Key = key.KeyPair
 		default:
