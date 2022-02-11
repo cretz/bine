@@ -127,9 +127,8 @@ type AddOnionRequest struct {
 	// Ports are ADD_ONION Port values. Key is virtual port, Val is target
 	// port (or can be empty to use virtual port).
 	Ports []*KeyVal
-	// ClientAuths are ADD_ONION ClientAuth values. If value is empty string,
-	// Tor will generate the password.
-	ClientAuths map[string]string
+	// ClientAuths are ADD_ONION V3Key values.
+	ClientAuths []string
 }
 
 // AddOnionResponse is the response for AddOnion.
@@ -138,8 +137,6 @@ type AddOnionResponse struct {
 	ServiceID string
 	// Key is the ADD_ONION response PrivateKey value.
 	Key Key
-	// ClientAuths are the ADD_ONION response ClientAuth values.
-	ClientAuths map[string]string
 	// RawResponse is the raw ADD_ONION response.
 	RawResponse *Response
 }
@@ -163,11 +160,8 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 			cmd += "," + port.Val
 		}
 	}
-	for name, blob := range req.ClientAuths {
-		cmd += " ClientAuth=" + name
-		if blob != "" {
-			cmd += ":" + blob
-		}
+	for _, blob := range req.ClientAuths {
+		cmd += " ClientAuthV3=" + blob
 	}
 	// Invoke and read response
 	resp, err := c.SendRequest(cmd)
@@ -184,12 +178,6 @@ func (c *Conn) AddOnion(req *AddOnionRequest) (*AddOnionResponse, error) {
 			if ret.Key, err = KeyFromString(val); err != nil {
 				return nil, err
 			}
-		case "ClientAuth":
-			name, pass, _ := torutil.PartitionString(val, ':')
-			if ret.ClientAuths == nil {
-				ret.ClientAuths = map[string]string{}
-			}
-			ret.ClientAuths[name] = pass
 		}
 	}
 	return ret, nil
