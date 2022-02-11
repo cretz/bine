@@ -10,26 +10,10 @@ import (
 	"github.com/cretz/bine/torutil"
 )
 
-func TestListenSimpleHTTPV2(t *testing.T) {
-	ctx := GlobalEnabledNetworkContext(t)
-	// Create an onion service to listen on random port but show as 80
-	conf := &tor.ListenConf{RemotePorts: []int{80}}
-	client, server, onion := startHTTPServer(ctx, conf, "/test", func(w http.ResponseWriter, r *http.Request) {
-		_, err := w.Write([]byte("Test Content"))
-		ctx.Require.NoError(err)
-	})
-	// Check the service ID
-	ctx.Require.Equal(torutil.OnionServiceIDFromPrivateKey(onion.Key), onion.ID)
-	defer server.Shutdown(ctx)
-	// Call /test
-	byts := httpGet(ctx, client, "http://"+onion.ID+".onion/test")
-	ctx.Require.Equal("Test Content", string(byts))
-}
-
 func TestListenSimpleHTTPV3(t *testing.T) {
 	ctx := GlobalEnabledNetworkContext(t)
 	// Create an onion service to listen on random port but show as 80
-	conf := &tor.ListenConf{RemotePorts: []int{80}, Version3: true}
+	conf := &tor.ListenConf{RemotePorts: []int{80}}
 	// _, conf.Key, _ = ed25519.GenerateKey(nil)
 	client, server, onion := startHTTPServer(ctx, conf, "/test", func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte("Test Content"))

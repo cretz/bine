@@ -2,12 +2,13 @@ package tests
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/cretz/bine/control"
 )
+
+const hsFetchOnion = "2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid"
 
 func TestHSFetch(t *testing.T) {
 	ctx := GlobalEnabledNetworkContext(t)
@@ -18,7 +19,7 @@ func TestHSFetch(t *testing.T) {
 	ctx.Require.NoError(err)
 	defer ctx.Control.RemoveEventListener(eventCh, control.EventCodeHSDescContent)
 	// Lookup HS
-	err = ctx.Control.GetHiddenServiceDescriptorAsync("facebookcorewwwi", "")
+	err = ctx.Control.GetHiddenServiceDescriptorAsync(hsFetchOnion, "")
 	ctx.Require.NoError(err)
 	// Grab events
 	eventCtx, eventCancel := context.WithTimeout(ctx, 45*time.Second)
@@ -32,7 +33,6 @@ func TestHSFetch(t *testing.T) {
 		ctx.Require.NoError(err)
 	case event := <-eventCh:
 		hsEvent := event.(*control.HSDescContentEvent)
-		ctx.Require.Equal("facebookcorewwwi", hsEvent.Address)
-		ctx.Require.True(strings.HasPrefix(hsEvent.Descriptor, "rendezvous-service-descriptor "+hsEvent.DescID))
+		ctx.Require.Equal(hsFetchOnion, hsEvent.Address)
 	}
 }

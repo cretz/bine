@@ -11,5 +11,5 @@ func TestProtocolInfo(t *testing.T) {
 	info, err := ctx.Control.ProtocolInfo()
 	ctx.Require.NoError(err)
 	ctx.Require.Contains(info.AuthMethods, "SAFECOOKIE")
-	ctx.Require.True(strings.HasPrefix(info.TorVersion, "0.3"))
+	ctx.Require.True(strings.HasPrefix(info.TorVersion, "0.4"))
 }
