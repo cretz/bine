@@ -9,7 +9,7 @@ Features:
 * Full support for the Tor controller API
 * Support for `net.Conn` and `net.Listen` style APIs
 * Supports statically compiled Tor to embed Tor into the binary
-* Supports both v2 and v3 onion services
+* Supports v3 onion services
 * Support for embedded control socket in Tor >= 0.3.5 (non-Windows)
 
 See info below, the [API docs](http://godoc.org/github.com/cretz/bine), and the [examples](examples). The project is
@@ -45,7 +45,7 @@ func main() {
 	listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer listenCancel()
 	// Create a v3 onion service to listen on any port but show as 80
-	onion, err := t.Listen(listenCtx, &tor.ListenConf{Version3: true, RemotePorts: []int{80}})
+	onion, err := t.Listen(listenCtx, &tor.ListenConf{RemotePorts: []int{80}})
 	if err != nil {
 		log.Panicf("Unable to create onion service: %v", err)
 	}
