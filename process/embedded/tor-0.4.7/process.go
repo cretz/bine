@@ -12,6 +12,35 @@ import (
 	"github.com/cretz/bine/process"
 )
 
+/*
+#cgo CFLAGS: -I${SRCDIR}/../../../../tor-static/tor/src/feature/api
+// The libs below are generated via tor-static's show-libs
+#cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/tor -ltor
+#cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/libevent/dist/lib -levent
+#cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/xz/dist/lib -llzma
+#cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/zlib/dist/lib -lz
+#cgo LDFLAGS: -L${SRCDIR}/../../../../tor-static/openssl/dist/lib -lssl -lcrypto
+#cgo windows LDFLAGS: -lws2_32 -lcrypt32 -lgdi32 -liphlpapi -lshlwapi -Wl,-Bstatic -lpthread
+#cgo !windows LDFLAGS: -lm
+#include <stdlib.h>
+#ifdef _WIN32
+	#include <winsock2.h>
+#endif
+#include <tor_api.h>
+// Ref: https://stackoverflow.com/questions/45997786/passing-array-of-string-as-parameter-from-go-to-c-function
+static char** makeCharArray(int size) {
+	return calloc(sizeof(char*), size);
+}
+static void setArrayString(char **a, char *s, int n) {
+	a[n] = s;
+}
+static void freeCharArray(char **a, int size) {
+	int i;
+	for (i = 0; i < size; i++)
+		free(a[i]);
+	free(a);
+}
+*/
 import "C"
 
 type embeddedCreator struct{}
