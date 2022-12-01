@@ -88,12 +88,12 @@ func start(ctx context.Context, domain string, httpAddr string) (srv *server, er
 	}
 	// Henceforth, any err needs to call close
 	// Start Onion 1
-	if srv.onion1, err = srv.t.Listen(ctx, &tor.ListenConf{RemotePorts: []int{80}, Version3: true}); err != nil {
+	if srv.onion1, err = srv.t.Listen(ctx, &tor.ListenConf{RemotePorts: []int{80}}); err != nil {
 		srv.Close()
 		return nil, err
 	}
 	// Start Onion 2
-	if srv.onion2, err = srv.t.Listen(ctx, &tor.ListenConf{RemotePorts: []int{443}, Version3: true}); err != nil {
+	if srv.onion2, err = srv.t.Listen(ctx, &tor.ListenConf{RemotePorts: []int{443}}); err != nil {
 		srv.Close()
 		return nil, err
 	}
