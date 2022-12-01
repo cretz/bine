@@ -90,10 +90,6 @@ type ListenConf struct {
 	// false, the network will be enabled if it's not and then we will wait
 	// until the onion service is published.
 	NoWait bool
-
-	// Version3
-
-	Version3 bool
 }
 
 // Listen creates an onion service and local listener. The context can be nil.

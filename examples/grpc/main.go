@@ -126,7 +126,7 @@ func startServer(ctx context.Context, t *tor.Tor) (server *grpc.Server, onionID 
 	defer listenCancel()
 	// Create an onion service to listen on a random local port but show as 80
 	// We'll do version 3 since it's quicker
-	onion, err := t.Listen(listenCtx, &tor.ListenConf{Version3: true, RemotePorts: []int{80}})
+	onion, err := t.Listen(listenCtx, &tor.ListenConf{RemotePorts: []int{80}})
 	if err != nil {
 		return nil, "", err
 	}

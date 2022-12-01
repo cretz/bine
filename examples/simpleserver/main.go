@@ -32,7 +32,7 @@ func run() error {
 	listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer listenCancel()
 	// Create an onion service to listen on 8080 but show as 80
-	onion, err := t.Listen(listenCtx, &tor.ListenConf{LocalPort: 8080, RemotePorts: []int{80}, Version3: true})
+	onion, err := t.Listen(listenCtx, &tor.ListenConf{LocalPort: 8080, RemotePorts: []int{80}})
 	if err != nil {
 		return err
 	}

@@ -50,7 +50,7 @@ func run() error {
 	defer listenCancel()
 	// Create an onion service to listen on a random local port but show as
 	// Do version 3, it's faster to set up
-	onion, err := t.Listen(listenCtx, &tor.ListenConf{RemotePorts: []int{80}, Version3: true})
+	onion, err := t.Listen(listenCtx, &tor.ListenConf{RemotePorts: []int{80}})
 	if err != nil {
 		return err
 	}
