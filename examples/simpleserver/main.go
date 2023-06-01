@@ -16,6 +16,10 @@ func main() {
 	}
 }
 
+func home(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Hello, Dark World!"))
+}
+
 func run() error {
 	// Start tor with default config (can set start conf's DebugWriter to os.Stdout for debug logs)
 	fmt.Println("Starting and registering onion service, please wait a couple of minutes...")
@@ -25,9 +29,7 @@ func run() error {
 	}
 	defer t.Close()
 	// Add a handler
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Hello, Dark World!"))
-	})
+	http.HandleFunc("/", home)
 	// Wait at most a few minutes to publish the service
 	listenCtx, listenCancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer listenCancel()
