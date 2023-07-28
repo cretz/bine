@@ -15,6 +15,28 @@ Features:
 See info below, the [API docs](http://godoc.org/github.com/cretz/bine), and the [examples](examples). The project is
 MIT licensed. The Tor docs/specs and https://github.com/yawning/bulb were great helps when building this.
 
+## Installing
+Bine requires tor-static, which cannot be installed by go's package manager.
+
+Instead:
+```
+mkdir -p ~/go/src/github.com/cretz
+git clone --recursive https://github.com/cretz/tor-static ~/go/src/github.com/cretz/tor-static
+pushd ~/go/src/github.com/cretz/tor-static
+go run build.go build-all
+popd
+go get github.com/cretz/bine
+```
+## Requirements
+- perl-FindBin (fedora)
+- autotools
+- gettext-devel (fedora, the package that provides autopoint)
+- glibc-static
+
+## If you have build errors
+> here is how to make go run build.go build-all verbose...
+
+
 ## Example
 
 It is really easy to create an onion service. For example, assuming `tor` is on the `PATH`, this bit of code will show
